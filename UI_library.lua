@@ -3,9 +3,9 @@
 	Minecraft Client 風 Roblox UI ライブラリ (Lunar / Badlion 風)
 
 	特徴:
-	 ・ カテゴリごとのドロップダウン (Combat / Movement / Render / Utility など)
-	 ・ ドロップダウンのヘッダーを 右クリック でアニメーション付きで下にスライド開閉
-	 ・ 各ドロップダウンの中に 好きな名前を入力できる 名前欄 (TextBox)
+	 ・ 横長ウィンドウに カテゴリタブ を上部に横並び表示 (Combat / Movement / Render / Utility など)
+	 ・ タブをクリック (右クリックでも可) でパネルが下にスライドして切り替わる
+	 ・ 各カテゴリの中に 好きな名前を入力できる 名前欄 (TextBox)
 	 ・ トグルはクリックで ON/OFF。ON になると enabled color (アクセントカラー) に変化
 	 ・ スライダー・ボタンも同梱
 
@@ -13,13 +13,13 @@
 		local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/あなたのURL/UI_library.lua"))()
 		-- またはソースコードを直接スクリプトに貼り付け
 
-		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client", Size = UDim2.fromOffset(500, 620) })
+		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client", Size = UDim2.fromOffset(720, 460) })
 
 		local Combat = UI:CreateDropdown("Combat")
 		Combat:AddToggle({ Text = "Kill Aura", Default = true, Callback = function(v) print(v) end })
 		Combat:AddNameInput({ Text = "名前", Placeholder = "好きな名前を入力", Callback = function(name) print(name) end })
 
-		-- ドロップダウンはヘッダーを右クリックで開閉できます
+		-- カテゴリはタブをクリック (右クリックでも可) で切り替えられます
 
 	CreateWindow の追加オプション:
 		OutlineColor = Color3.fromRGB(r, g, b) -- ウィンドウのアウトラインカラー
@@ -28,6 +28,7 @@
 		GlowSize     = 24                       -- グロー画像の広がり (px)
 		GlowImage    = "rbxassetid://..."       -- グロー用 PNG (省略時は GitHub から自動取得)
 		GlowTransparency = 0.6                  -- グロー画像の透明度
+		ToggleKey    = Enum.KeyCode.RightControl -- UI を開閉するキー (false で無効化)
 ]]
 
 local UILibrary = {}
@@ -185,7 +186,7 @@ function UILibrary:CreateWindow(config)
 	protectgui(screenGui)
 	screenGui.Parent = gethui()
 
-	local size = config.Size or UDim2.fromOffset(500, 620)
+	local size = config.Size or UDim2.fromOffset(720, 460) -- 横長 (ランドスケープ)
 	local position = config.Position or UDim2.new(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2)
 
 	-- アウトライン / グロー設定 (config で上書き可能)
@@ -280,28 +281,84 @@ function UILibrary:CreateWindow(config)
 		TextYAlignment = Enum.TextYAlignment.Center,
 	}, titleBar)
 
-	-- ドロップダウン一覧 (スクロール可能)
-	local scrolling = New("ScrollingFrame", {
-		Name = "Dropdowns",
+	-- カテゴリタブ (上部に横並び)
+	local tabBar = New("Frame", {
+		Name = "TabBar",
 		Position = UDim2.new(0, 10, 0, 50),
-		Size = UDim2.new(1, -20, 1, -58),
+		Size = UDim2.new(1, -20, 0, 30),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, main)
+	local tabLayout = New("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}, tabBar)
+
+	-- パネル表示領域 (選択中のカテゴリを表示)
+	local panelArea = New("ScrollingFrame", {
+		Name = "PanelArea",
+		Position = UDim2.new(0, 10, 0, 86),
+		Size = UDim2.new(1, -20, 1, -94),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Theme.Border,
 		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 	}, main)
 
-	local listLayout = New("UIListLayout", {
-		Padding = UDim.new(0, Settings.Padding or 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, scrolling)
+	-- タブ選択管理
+	local activeTab = nil
+	local tabSelected = false
+	local function updateCanvas()
+		local h = 0
+		if activeTab and activeTab._panel then
+			h = activeTab._panel.Size.Y.Offset
+		end
+		panelArea.CanvasSize = UDim2.fromOffset(0, h)
+	end
+	function window:SelectTab(dropdown, animate)
+		if activeTab == dropdown then
+			return
+		end
+		if activeTab then
+			activeTab._panel.Visible = false
+			activeTab._tab.BackgroundColor3 = Theme.Panel
+			activeTab._tab.TextColor3 = Theme.TextDim
+			activeTab.Open = false
+		end
+		activeTab = dropdown
+		tabSelected = true
+		dropdown.Open = true
+		dropdown._panel.Visible = true
+		dropdown._panel.Size = UDim2.new(1, 0, 0, dropdown._contentHeight())
+		dropdown._tab.BackgroundColor3 = Theme.Accent
+		dropdown._tab.TextColor3 = Theme.Background
+		if animate ~= false then
+			dropdown._panel.Position = UDim2.new(0, 0, 0, -24)
+			TweenService:Create(dropdown._panel, TweenInfoOut, {
+				Position = UDim2.new(0, 0, 0, 0),
+			}):Play()
+		else
+			dropdown._panel.Position = UDim2.new(0, 0, 0, 0)
+		end
+		panelArea.CanvasPosition = Vector2.zero
+		updateCanvas()
+	end
 
-	-- ドラッグで移動
+	-- ドラッグで移動 (文字等に阻まれないよう最前面の透明領域で受ける)
+	local dragArea = New("Frame", {
+		Name = "DragArea",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 10,
+	}, titleBar)
+
 	local dragging = false
 	local dragOffset = Vector2.zero
-	titleBar.InputBegan:Connect(function(input)
+	dragArea.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = true
 			dragOffset = input.Position - main.AbsolutePosition
@@ -322,10 +379,27 @@ function UILibrary:CreateWindow(config)
 		end
 	end)
 
-	window._order = 2
+	-- キーバインドで UI を開閉 (デフォルト: RightControl、false で無効化)
+	local toggleKey = config.ToggleKey
+	if toggleKey == nil then
+		toggleKey = Enum.KeyCode.RightControl
+	end
+	if toggleKey then
+		UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if not gameProcessed and input.KeyCode == toggleKey then
+				screenGui.Enabled = not screenGui.Enabled
+			end
+		end)
+	end
+	function window:Toggle()
+		screenGui.Enabled = not screenGui.Enabled
+	end
+	function window:SetToggleKey(key)
+		toggleKey = key
+	end
 
 	-- ============================================================
-	-- ドロップダウン作成 (右クリックでスライド開閉)
+	-- カテゴリ作成 (上部のタブ + パネル)
 	-- ============================================================
 	function window:CreateDropdown(name, dropdownConfig)
 		dropdownConfig = dropdownConfig or {}
@@ -334,111 +408,69 @@ function UILibrary:CreateWindow(config)
 		dropdown.Open = false
 		dropdown._rowOrder = 1
 
-		-- ヘッダー
-		local header = New("TextButton", {
-			Name = "Header",
-			Size = UDim2.new(1, 0, 0, 36),
+		-- タブ (上部に横並び)
+		local tab = New("TextButton", {
+			Name = "Tab_" .. tostring(name),
+			Size = UDim2.new(0, 0, 0, 30),
+			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundColor3 = Theme.Panel,
 			AutoButtonColor = false,
-			Text = "",
-			BorderSizePixel = 0,
-			LayoutOrder = window._order,
-		}, scrolling)
-		window._order = window._order + 1
-		New("UICorner", { CornerRadius = UDim.new(0, 8) }, header)
-
-		local headerLabel = New("TextLabel", {
-			Text = name or "Dropdown",
+			Text = name or "Tab",
 			Font = FONT_TEXT,
 			TextSize = 15,
-			TextColor3 = Theme.Text,
-			BackgroundTransparency = 1,
-			Position = UDim2.new(0, 12, 0, 0),
-			Size = UDim2.new(1, -80, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-		}, header)
-		MakeOutline(headerLabel, 0.4)
-
-		local hintLabel = New("TextLabel", {
-			Text = "Right-Click",
-			Font = FONT_TEXT,
-			TextSize = 11,
 			TextColor3 = Theme.TextDim,
-			BackgroundTransparency = 1,
-			Position = UDim2.new(1, -74, 0, 0),
-			Size = UDim2.new(0, 52, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			TextYAlignment = Enum.TextYAlignment.Center,
-		}, header)
-
-		-- 矢印: 閉じている時は「»」(右向き)、開くと 90° 回転で下向き
-		local arrow = New("TextLabel", {
-			Text = "»",
-			Font = FONT_TEXT,
-			TextSize = 18,
-			TextColor3 = Theme.TextDim,
-			BackgroundTransparency = 1,
-			Position = UDim2.new(1, -20, 0, 0),
-			Size = UDim2.new(0, 12, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Center,
-			TextYAlignment = Enum.TextYAlignment.Center,
-		}, header)
-
-		-- 中身 (開いた時にサイズがアニメーションする)
-		local container = New("Frame", {
-			Name = "Container",
-			Size = UDim2.new(1, 0, 0, 0),
-			BackgroundTransparency = 1,
-			ClipsDescendants = true,
+			TextStrokeColor3 = Theme.Outline,
+			TextStrokeTransparency = 0.35,
 			BorderSizePixel = 0,
-			LayoutOrder = window._order,
-		}, scrolling)
-		window._order = window._order + 1
+		}, tabBar)
+		New("UICorner", { CornerRadius = UDim.new(0, 8) }, tab)
 
-		local containerList = New("UIListLayout", {
+		tab.MouseEnter:Connect(function()
+			if activeTab ~= dropdown then
+				TweenService:Create(tab, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
+			end
+		end)
+		tab.MouseLeave:Connect(function()
+			if activeTab ~= dropdown then
+				TweenService:Create(tab, TweenInfoFast, { BackgroundColor3 = Theme.Panel }):Play()
+			end
+		end)
+		tab.MouseButton1Click:Connect(function()
+			window:SelectTab(dropdown)
+		end)
+		tab.MouseButton2Click:Connect(function()
+			window:SelectTab(dropdown)
+		end)
+
+		-- パネル (タブの中身、選択時のみ表示)
+		local panel = New("Frame", {
+			Name = "Panel_" .. tostring(name),
+			Size = UDim2.new(1, 0, 0, 0),
+			Position = UDim2.new(0, 0, 0, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Visible = false,
+		}, panelArea)
+
+		local panelList = New("UIListLayout", {
 			Padding = UDim.new(0, 4),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-		}, container)
+		}, panel)
 
 		local function contentHeight()
-			return containerList.AbsoluteContentSize.Y + 8
+			return panelList.AbsoluteContentSize.Y + 8
 		end
 
-		local function setOpen(open, animate)
-			if dropdown.Open == open then
-				return
-			end
-			dropdown.Open = open
-
-			local info = (animate == false) and TweenInfo.new(0) or TweenInfoOut
-			TweenService:Create(container, info, {
-				Size = UDim2.new(1, 0, 0, open and contentHeight() or 0),
-			}):Play()
-			TweenService:Create(arrow, info, {
-				Rotation = open and 90 or 0,
-			}):Play()
-		end
-
-		-- 右クリックで開閉
-		header.MouseButton2Click:Connect(function()
-			setOpen(not dropdown.Open)
-		end)
-
-		-- ホバー効果
-		header.MouseEnter:Connect(function()
-			TweenService:Create(header, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
-		end)
-		header.MouseLeave:Connect(function()
-			TweenService:Create(header, TweenInfoFast, { BackgroundColor3 = Theme.Panel }):Play()
-		end)
-
-		-- 要素が追加されたら開いている状態の高さを更新
-		containerList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		panelList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			panel.Size = UDim2.new(1, 0, 0, contentHeight())
 			if dropdown.Open then
-				container.Size = UDim2.new(1, 0, 0, contentHeight())
+				updateCanvas()
 			end
 		end)
+
+		dropdown._tab = tab
+		dropdown._panel = panel
+		dropdown._contentHeight = contentHeight
 
 		-- 共通の行作成
 		local function makeRow(height)
@@ -450,7 +482,7 @@ function UILibrary:CreateWindow(config)
 				Text = "",
 				BorderSizePixel = 0,
 				LayoutOrder = dropdown._rowOrder,
-			}, container)
+			}, panel)
 			dropdown._rowOrder = dropdown._rowOrder + 1
 			New("UICorner", { CornerRadius = UDim.new(0, 8) }, row)
 
@@ -764,21 +796,25 @@ function UILibrary:CreateWindow(config)
 			return button
 		end
 
-		-- 開閉 API
+		-- タブ選択 API
 		function dropdown:SetOpen(open, animate)
-			setOpen(open, animate)
+			if open then
+				window:SelectTab(dropdown, animate)
+			end
 		end
 
 		function dropdown:Toggle(animate)
-			setOpen(not dropdown.Open, animate)
+			if not dropdown.Open then
+				window:SelectTab(dropdown, animate)
+			end
 		end
 
-		-- DefaultOpen なら最初から開いておく (レイアウト計測後に)
-		if dropdownConfig.DefaultOpen then
-			task.defer(function()
-				setOpen(true, false)
-			end)
-		end
+		-- 最初のカテゴリ or DefaultOpen なら最初から表示
+		task.defer(function()
+			if dropdownConfig.DefaultOpen or not tabSelected then
+				window:SelectTab(dropdown, false)
+			end
+		end)
 
 		return dropdown
 	end
