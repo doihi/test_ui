@@ -1,25 +1,27 @@
 --[[
 	UI_library.lua
-	Minecraft Client 風 Roblox UI ライブラリ (Lunar / Badlion 風)
+	Vape V4 風 Roblox UI ライブラリ
 
 	特徴:
-	 ・ Vape V4 風レイアウト: 左にカテゴリーリスト、右に選択中のカテゴリーの設定パネル
-	 ・ カテゴリーはクリックで切替、選択中は左端にアクセントバーが表示される
+	 ・ メインウィンドウ自体が 220px 幅のサイドバー、高さはコンテンツに合わせて自動
+	 ・ カテゴリーはクリックで切替、選択中はアクセント色 + 右端に矢印が表示される
+	 ・ パネルはサイドバーの右隣に独立ウィンドウで開き、ヘッダーのドラッグで移動
+	 ・ パネル右端を左クリック長押し + ドラッグで幅を縮小/拡大
+	 ・ トグルは行全体がボタン。ON になるとアクセントカラーに変化
+	 ・ スライダーは細バー + 円形ノブ、値はクリックで直接入力も可能
 	 ・ 各カテゴリの中に 好きな名前を入力できる 名前欄 (TextBox)
-	 ・ トグルはクリックで ON/OFF。ON になると enabled color (アクセントカラー) に変化
-	 ・ スライダー・ボタンも同梱
 
 	使い方:
 		local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/あなたのURL/UI_library.lua"))()
 		-- またはソースコードを直接スクリプトに貼り付け
 
-		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client", Size = UDim2.fromOffset(570, 360) })
+		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client" })
 
 		local Combat = UI:CreateDropdown("Combat")
 		Combat:AddToggle({ Text = "Kill Aura", Default = true, Callback = function(v) print(v) end })
 		Combat:AddNameInput({ Text = "名前", Placeholder = "好きな名前を入力", Callback = function(name) print(name) end })
 
-		-- カテゴリーは左のリストからクリックで切り替えられます
+		-- カテゴリーはサイドバーからクリックで切り替えられます
 
 	CreateWindow の追加オプション:
 		OutlineColor = Color3.fromRGB(r, g, b) -- ウィンドウのアウトラインカラー
@@ -54,22 +56,28 @@ local function resolveFont(name, fallback)
 	return fallback
 end
 
--- テーマ (Minecraft 風のダークUI)
+-- テーマ (Vape V4 風のダークUI)
 local Theme = {
-	Background    = Color3.fromRGB(16, 16, 16),   -- ウィンドウ背景
-	Sidebar       = Color3.fromRGB(21, 21, 21),   -- カテゴリーリスト (左サイドバー)
-	Panel         = Color3.fromRGB(30, 30, 30),   -- 行
-	PanelHover    = Color3.fromRGB(42, 42, 42),
-	Input         = Color3.fromRGB(12, 12, 12),   -- 入力欄
-	Border        = Color3.fromRGB(78, 78, 78),
-	Text          = Color3.fromRGB(240, 240, 240),
-	TextDim       = Color3.fromRGB(150, 150, 150),
+	Background    = Color3.fromRGB(26, 25, 26),   -- ウィンドウ背景 (uipallet.Main)
+	Sidebar       = Color3.fromRGB(26, 25, 26),   -- カテゴリーリスト
+	Panel         = Color3.fromRGB(26, 25, 26),   -- モジュール行
+	PanelHover    = Color3.fromRGB(31, 30, 31),   -- 行ホバー
+	Input         = Color3.fromRGB(31, 30, 31),   -- 入力欄
+	Border        = Color3.fromRGB(85, 85, 85),   -- UIStroke 枠線
+	Text          = Color3.fromRGB(200, 200, 200),-- uipallet.Text
+	TextDim       = Color3.fromRGB(159, 159, 159),-- 非選択テキスト
+	TextDim2      = Color3.fromRGB(90, 90, 90),   -- 補助テキスト (区切り等)
+	Placeholder   = Color3.fromRGB(121, 121, 121),
 	Accent        = Color3.fromRGB(90, 235, 130), -- enabled color (ON 時の色)
 	AccentDim     = Color3.fromRGB(50, 120, 70),
-	Disabled      = Color3.fromRGB(58, 58, 58),   -- OFF 時のトグル色
+	Disabled      = Color3.fromRGB(62, 61, 62),   -- トグル OFF (ホルダー)
+	DisabledHover = Color3.fromRGB(120, 119, 120),-- トグル OFF ホバー
+	SliderTrack   = Color3.fromRGB(35, 34, 35),   -- スライダーバー
+	ButtonHolder  = Color3.fromRGB(39, 38, 39),   -- ボタン内枠
+	ButtonHover   = Color3.fromRGB(48, 47, 48),   -- ボタン内枠ホバー
 	Danger        = Color3.fromRGB(235, 90, 90),
-	Outline       = Color3.fromRGB(0, 0, 0),      -- 文字の縁取り (Minecraft 風)
-	WindowOutline = Color3.fromRGB(78, 78, 78),   -- ウィンドウのアウトラインカラー
+	Outline       = Color3.fromRGB(0, 0, 0),      -- 文字の縁取り
+	WindowOutline = Color3.fromRGB(85, 85, 85),   -- ウィンドウのアウトラインカラー
 	GlowColor     = Color3.fromRGB(90, 235, 130), -- ウィンドウ外側のグローカラー
 }
 
@@ -81,8 +89,8 @@ local Settings = {
 	GlowTransparency = 0.6, -- グロー画像の透明度
 }
 
-local FONT_TITLE = resolveFont("Minecraft", resolveFont("GothamSemibold", Enum.Font.ArialBold))
-local FONT_TEXT  = resolveFont("Minecraft", resolveFont("Gotham", Enum.Font.Arial))
+local FONT_TITLE = resolveFont("GothamSemibold", Enum.Font.ArialBold)
+local FONT_TEXT  = resolveFont("Gotham", Enum.Font.Arial)
 local FONT_INPUT = resolveFont("Gotham", Enum.Font.Arial) -- 名前入力欄は日本語対応フォント
 
 local TweenInfoFast = TweenInfo.new(Settings.HoverSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -185,8 +193,7 @@ function UILibrary:CreateWindow(config)
 	protectgui(screenGui)
 	screenGui.Parent = gethui()
 
-	local size = config.Size or UDim2.fromOffset(570, 360) -- Vape V4 風のコンパクトな横長
-	local position = config.Position or UDim2.new(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2)
+	local position = config.Position or UDim2.fromOffset(6, 60) -- Vape V4 準拠の初期位置
 
 	-- アウトライン / グロー設定 (config で上書き可能)
 	local outlineColor = config.OutlineColor or Theme.WindowOutline
@@ -196,22 +203,24 @@ function UILibrary:CreateWindow(config)
 	local glowImage = config.GlowImage or UILibrary:GetGlowImage()
 	local glowTransparency = config.GlowTransparency or Settings.GlowTransparency
 
+	local WINDOW_WIDTH = 220 -- Vape V4 準拠: メインウィンドウ = サイドバー幅
+
 	local main = New("Frame", {
 		Name = "Main",
-		Size = size,
+		Size = UDim2.fromOffset(WINDOW_WIDTH, 0),
 		Position = position,
 		BackgroundColor3 = Theme.Background,
 		BorderSizePixel = 0,
 	}, screenGui)
-	New("UICorner", { CornerRadius = UDim.new(0, 10) }, main)
-	New("UIStroke", { Color = outlineColor, Thickness = 1.5, Transparency = 0.25 }, main)
+	New("UICorner", { CornerRadius = UDim.new(0, 8) }, main)
+	New("UIStroke", { Color = outlineColor, Thickness = 1, Transparency = 0.8, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, main)
 
 	-- 外側のグロー (PNG 画像でぼかし風に。main の後ろに描画される別フレーム)
 	local glowFrame = nil
 	if glowEnabled then
 		glowFrame = New("Frame", {
 			Name = "Glow",
-			Size = UDim2.new(size.X.Scale, size.X.Offset + glowSize * 2, size.Y.Scale, size.Y.Offset + glowSize * 2),
+			Size = UDim2.fromOffset(WINDOW_WIDTH + glowSize * 2, glowSize * 2),
 			Position = position,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -230,14 +239,14 @@ function UILibrary:CreateWindow(config)
 		}, glowFrame)
 	end
 
-	-- タイトルバー (ウィンドウと同じ背景色 + 区切り線)
+	-- タイトルバー (サイドバーのヘッダー)
 	local titleBar = New("Frame", {
 		Name = "TitleBar",
 		Size = UDim2.new(1, 0, 0, 42),
 		BackgroundColor3 = Theme.Background,
 		BorderSizePixel = 0,
 	}, main)
-	New("UICorner", { CornerRadius = UDim.new(0, 10) }, titleBar)
+	New("UICorner", { CornerRadius = UDim.new(0, 8) }, titleBar)
 	New("Frame", {
 		Size = UDim2.new(1, 0, 0, 1),
 		Position = UDim2.new(0, 0, 0, 41),
@@ -247,99 +256,75 @@ function UILibrary:CreateWindow(config)
 
 	-- アイコン (草ブロック風の緑の四角)
 	local icon = New("Frame", {
-		Size = UDim2.fromOffset(10, 10),
-		Position = UDim2.new(0, 14, 0.5, 0),
+		Size = UDim2.fromOffset(16, 16),
+		Position = UDim2.new(0, 12, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = Theme.Accent,
 		BorderSizePixel = 0,
 	}, titleBar)
-	New("UICorner", { CornerRadius = UDim.new(0, 3) }, icon)
+	New("UICorner", { CornerRadius = UDim.new(0, 4) }, icon)
 
 	local titleLabel = New("TextLabel", {
 		Text = config.Name or "Minecraft Client",
 		Font = FONT_TITLE,
-		TextSize = 17,
+		TextSize = 14,
 		TextColor3 = Theme.Text,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 32, 0, 0),
-		Size = UDim2.new(0.6, 0, 1, 0),
+		Position = UDim2.new(0, 34, 0, 0),
+		Size = UDim2.new(0.75, 0, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 	}, titleBar)
-	MakeOutline(titleLabel, 0.35)
+	MakeOutline(titleLabel, 0.4)
 
 	New("TextLabel", {
 		Text = "v1.0",
 		Font = FONT_TEXT,
-		TextSize = 13,
+		TextSize = 11,
 		TextColor3 = Theme.TextDim,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -50, 0, 0),
-		Size = UDim2.new(0, 42, 1, 0),
+		Position = UDim2.new(1, -34, 0, 0),
+		Size = UDim2.new(0, 30, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextYAlignment = Enum.TextYAlignment.Center,
 	}, titleBar)
 
-	-- カテゴリーリスト (Vape V4 風: 左サイドバー)
-	local categoryBar = New("Frame", {
-		Name = "CategoryBar",
-		Position = UDim2.new(0, 0, 0, 40),
-		Size = UDim2.new(0, 110, 1, -40),
-		BackgroundColor3 = Theme.Sidebar,
-		BorderSizePixel = 0,
-	}, main)
-	New("Frame", {
-		Size = UDim2.new(0, 1, 1, 0),
-		Position = UDim2.new(1, 0, 0, 0),
-		BackgroundColor3 = Theme.Border,
-		BorderSizePixel = 0,
-	}, categoryBar)
+	-- カテゴリーリスト (メインウィンドウ本体)
 	local categoryList = New("UIListLayout", {
-		Padding = UDim.new(0, 2),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, categoryBar)
-
-	-- 設定パネル表示領域 (選択中のカテゴリーを表示)
-	local panelArea = New("ScrollingFrame", {
-		Name = "PanelArea",
-		Position = UDim2.new(0, 116, 0, 48),
-		Size = UDim2.new(1, -124, 1, -56),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Theme.Border,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
 	}, main)
 
-	-- カテゴリー選択管理
-	local activeDropdown = nil
-	local function updateCanvas()
-		local h = 0
-		if activeDropdown and activeDropdown._panel then
-			h = activeDropdown._panel.Size.Y.Offset
+	local function updateWindowHeight()
+		-- AbsoluteContentSize は titleBar + divider + ボタン分を含むため +8 だけでよい
+		local h = categoryList.AbsoluteContentSize.Y + 8
+		main.Size = UDim2.fromOffset(WINDOW_WIDTH, h)
+		if glowFrame then
+			glowFrame.Size = UDim2.fromOffset(WINDOW_WIDTH + glowSize * 2, h + glowSize * 2)
 		end
-		panelArea.CanvasSize = UDim2.fromOffset(0, h)
 	end
+	categoryList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateWindowHeight)
+	task.defer(updateWindowHeight)
+
+	-- カテゴリー選択管理 (選択中のみ右隣にパネルを表示)
+	local activeDropdown = nil
 	local function selectCategory(dropdown)
 		if activeDropdown == dropdown then
 			return
 		end
 		if activeDropdown then
 			activeDropdown._panel.Visible = false
-			activeDropdown._indicator.Visible = false
-			activeDropdown._button.BackgroundColor3 = Theme.Sidebar
-			activeDropdown._buttonLabel.TextColor3 = Theme.TextDim
+			activeDropdown._button.TextColor3 = Theme.TextDim
+			activeDropdown._button.BackgroundColor3 = Theme.Background
+			activeDropdown._arrow.TextColor3 = Theme.TextDim2
 			activeDropdown.Open = false
 		end
 		activeDropdown = dropdown
 		dropdown.Open = true
 		dropdown._panel.Visible = true
-		dropdown._panel.Size = UDim2.new(1, 0, 0, dropdown._contentHeight())
-		dropdown._indicator.Visible = true
+		dropdown._button.TextColor3 = Theme.Accent
 		dropdown._button.BackgroundColor3 = Theme.PanelHover
-		dropdown._buttonLabel.TextColor3 = Theme.Text
-		panelArea.CanvasPosition = Vector2.zero
-		updateCanvas()
+		dropdown._arrow.TextColor3 = Theme.Accent
 	end
 	function window:SelectTab(dropdown, animate)
 		selectCategory(dropdown)
@@ -404,150 +389,205 @@ function UILibrary:CreateWindow(config)
 
 		local dropdown = {}
 		dropdown.Open = false
-		dropdown._rowOrder = 1
 
-		-- サイドバーのカテゴリーボタン
+		-- サイドバーのカテゴリーボタン (Vape V4 の GUIButton 風)
 		local button = New("TextButton", {
 			Name = "Category_" .. tostring(name),
-			Size = UDim2.new(1, 0, 0, 32),
-			BackgroundColor3 = Theme.Sidebar,
+			Size = UDim2.new(1, 0, 0, 40),
+			BackgroundColor3 = Theme.Background,
 			AutoButtonColor = false,
-			Text = "",
-			BorderSizePixel = 0,
-		}, categoryBar)
-
-		local buttonLabel = New("TextLabel", {
-			Text = name or "Category",
+			Text = string.rep(" ", 12) .. (name or "Category"),
 			Font = FONT_TEXT,
-			TextSize = 15,
+			TextSize = 14,
 			TextColor3 = Theme.TextDim,
-			BackgroundTransparency = 1,
-			Position = UDim2.new(0, 12, 0, 0),
-			Size = UDim2.new(1, -12, 1, 0),
 			TextXAlignment = Enum.TextXAlignment.Left,
+			BorderSizePixel = 0,
+		}, main)
+
+		-- 右端の選択矢印
+		local arrow = New("TextLabel", {
+			Text = "»",
+			Font = FONT_TEXT,
+			TextSize = 14,
+			TextColor3 = Theme.TextDim2,
+			BackgroundTransparency = 1,
+			Position = UDim2.new(1, -24, 0, 0),
+			Size = UDim2.new(0, 16, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
 		}, button)
-		MakeOutline(buttonLabel, 0.4)
-
-		-- 選択中を示す左端のアクセントバー
-		local indicator = New("Frame", {
-			Name = "Indicator",
-			Size = UDim2.new(0, 3, 1, 0),
-			Position = UDim2.new(0, 0, 0, 0),
-			BackgroundColor3 = Theme.Accent,
-			BorderSizePixel = 0,
-			Visible = false,
-		}, button)
-		New("UICorner", { CornerRadius = UDim.new(0, 1) }, indicator)
 
 		button.MouseEnter:Connect(function()
 			if activeDropdown ~= dropdown then
 				TweenService:Create(button, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
+				TweenService:Create(button, TweenInfoFast, { TextColor3 = Theme.Text }):Play()
 			end
 		end)
 		button.MouseLeave:Connect(function()
 			if activeDropdown ~= dropdown then
-				TweenService:Create(button, TweenInfoFast, { BackgroundColor3 = Theme.Sidebar }):Play()
+				TweenService:Create(button, TweenInfoFast, { BackgroundColor3 = Theme.Background }):Play()
+				TweenService:Create(button, TweenInfoFast, { TextColor3 = Theme.TextDim }):Play()
 			end
 		end)
 		button.MouseButton1Click:Connect(function()
 			window:SelectTab(dropdown)
 		end)
 
-		-- パネル (右側、選択時のみ表示)
+		-- パネルウィンドウ (サイドバーの右隣に独立表示、ドラッグで移動)
 		local panel = New("Frame", {
 			Name = "Panel_" .. tostring(name),
-			Size = UDim2.new(1, 0, 0, 0),
-			Position = UDim2.new(0, 0, 0, 0),
-			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(WINDOW_WIDTH, 41),
+			Position = UDim2.fromOffset(236, 60),
+			BackgroundColor3 = Theme.Background,
 			BorderSizePixel = 0,
 			Visible = false,
-		}, panelArea)
+		}, screenGui)
+		New("UICorner", { CornerRadius = UDim.new(0, 8) }, panel)
+		New("UIStroke", { Color = Theme.WindowOutline, Thickness = 1, Transparency = 0.8, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, panel)
 
-		local panelList = New("UIListLayout", {
-			Padding = UDim.new(0, 4),
-			SortOrder = Enum.SortOrder.LayoutOrder,
+		-- ヘッダー (ドラッグでパネル移動)
+		local header = New("TextButton", {
+			Name = "Header",
+			Size = UDim2.new(1, 0, 0, 41),
+			BackgroundColor3 = Theme.Background,
+			AutoButtonColor = false,
+			Text = "",
+			BorderSizePixel = 0,
+		}, panel)
+		New("UICorner", { CornerRadius = UDim.new(0, 8) }, header)
+		New("Frame", {
+			Size = UDim2.new(1, 0, 0, 1),
+			Position = UDim2.new(0, 0, 0, 40),
+			BackgroundColor3 = Theme.Border,
+			BorderSizePixel = 0,
 		}, panel)
 
-		local function contentHeight()
-			return panelList.AbsoluteContentSize.Y + 8
-		end
+		-- ヘッダー内: カテゴリーアイコン + 名前
+		New("Frame", {
+			Size = UDim2.fromOffset(16, 16),
+			Position = UDim2.new(0, 12, 0.5, 0),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = Theme.Accent,
+			BorderSizePixel = 0,
+		}, header)
+		local headerLabel = New("TextLabel", {
+			Text = name or "Category",
+			Font = FONT_TITLE,
+			TextSize = 13,
+			TextColor3 = Theme.Text,
+			BackgroundTransparency = 1,
+			Position = UDim2.new(0, 34, 0, 0),
+			Size = UDim2.new(0.7, 0, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+		}, header)
+		MakeOutline(headerLabel, 0.4)
+
+		-- モジュールリスト (ヘッダー下、コンテンツに合わせて高さ自動)
+		local moduleList = New("ScrollingFrame", {
+			Name = "ModuleList",
+			Position = UDim2.new(0, 0, 0, 41),
+			Size = UDim2.new(1, 0, 1, -41),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 2,
+			ScrollBarImageTransparency = 0.75,
+			CanvasSize = UDim2.new(0, 0, 0, 0),
+		}, panel)
+
+		local panelList = New("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}, moduleList)
 
 		panelList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			panel.Size = UDim2.new(1, 0, 0, contentHeight())
-			if dropdown.Open then
-				updateCanvas()
+			local content = panelList.AbsoluteContentSize.Y
+			moduleList.CanvasSize = UDim2.fromOffset(0, content)
+			panel.Size = UDim2.fromOffset(panel.Size.X.Offset, math.min(41 + content, 601))
+		end)
+
+		-- ヘッダードラッグでパネル移動
+		local panelDrag = false
+		local panelDragOffset = Vector2.zero
+		header.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				panelDrag = true
+				panelDragOffset = input.Position - panel.AbsolutePosition
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if panelDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local newPos = input.Position - panelDragOffset
+				panel.Position = UDim2.fromOffset(newPos.X, newPos.Y)
+			end
+		end)
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				panelDrag = false
+			end
+		end)
+
+		-- 右端のリサイズハンドル (左クリック長押し + ドラッグで幅を縮小/拡大)
+		local resizeHandle = New("Frame", {
+			Name = "ResizeHandle",
+			Size = UDim2.new(0, 8, 1, 0),
+			Position = UDim2.new(1, -8, 0, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 5,
+		}, panel)
+
+		local resizing = false
+		local resizeStartX = 0
+		local resizeStartWidth = 0
+		resizeHandle.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				resizing = true
+				resizeStartX = input.Position.X
+				resizeStartWidth = panel.AbsoluteSize.X
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local newWidth = math.max(WINDOW_WIDTH, resizeStartWidth + (input.Position.X - resizeStartX))
+				panel.Size = UDim2.fromOffset(newWidth, panel.Size.Y.Offset)
+			end
+		end)
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				resizing = false
 			end
 		end)
 
 		dropdown._button = button
-		dropdown._buttonLabel = buttonLabel
-		dropdown._indicator = indicator
+		dropdown._arrow = arrow
 		dropdown._panel = panel
-		dropdown._contentHeight = contentHeight
-
-		-- 共通の行作成
-		local function makeRow(height)
-			local row = New("TextButton", {
-				Size = UDim2.new(1, -16, 0, height),
-				Position = UDim2.new(0, 8, 0, 0),
-				BackgroundColor3 = Theme.Panel,
-				AutoButtonColor = false,
-				Text = "",
-				BorderSizePixel = 0,
-				LayoutOrder = dropdown._rowOrder,
-			}, panel)
-			dropdown._rowOrder = dropdown._rowOrder + 1
-			New("UICorner", { CornerRadius = UDim.new(0, 8) }, row)
-
-			row.MouseEnter:Connect(function()
-				TweenService:Create(row, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
-			end)
-			row.MouseLeave:Connect(function()
-				TweenService:Create(row, TweenInfoFast, { BackgroundColor3 = Theme.Panel }):Play()
-			end)
-			return row
-		end
 
 		-- ============================================================
-		-- トグル追加 (クリックで ON/OFF、enabled color に基づいて色が変わる)
+		-- トグル追加 (行全体がトグル、ON でアクセント色になる)
 		-- ============================================================
 		function dropdown:AddToggle(toggleConfig)
 			toggleConfig = toggleConfig or {}
 
-			local row = makeRow(34)
-
-			local label = New("TextLabel", {
-				Text = toggleConfig.Text or "Toggle",
+			local row = New("TextButton", {
+				Size = UDim2.new(1, 0, 0, 40),
+				BackgroundColor3 = Theme.Panel,
+				AutoButtonColor = false,
+				Text = string.rep(" ", 12) .. (toggleConfig.Text or "Toggle"),
 				Font = FONT_TEXT,
 				TextSize = 14,
-				TextColor3 = Theme.Text,
-				BackgroundTransparency = 1,
-				Position = UDim2.new(0, 12, 0, 0),
-				Size = UDim2.new(1, -70, 1, 0),
+				TextColor3 = Theme.TextDim,
 				TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Center,
-			}, row)
-			MakeOutline(label, 0.4)
-
-			-- ピル型スイッチ
-			local pill = New("Frame", {
-				Size = UDim2.fromOffset(42, 20),
-				Position = UDim2.new(1, -12, 0.5, 0),
-				AnchorPoint = Vector2.new(1, 0.5),
-				BackgroundColor3 = Theme.Disabled,
 				BorderSizePixel = 0,
-			}, row)
-			New("UICorner", { CornerRadius = UDim.new(0, 10) }, pill)
+			}, moduleList)
 
-			local knob = New("Frame", {
-				Size = UDim2.fromOffset(16, 16),
-				Position = UDim2.new(0, 2, 0.5, 0),
-				AnchorPoint = Vector2.new(0, 0.5),
-				BackgroundColor3 = Color3.fromRGB(200, 200, 200),
+			-- ON 時に下部に表示される区切り線
+			local divider = New("Frame", {
+				Size = UDim2.new(1, 0, 0, 1),
+				Position = UDim2.new(0, 0, 1, -1),
+				BackgroundColor3 = Color3.fromRGB(48, 48, 48),
 				BorderSizePixel = 0,
-			}, pill)
-			New("UICorner", { CornerRadius = UDim.new(0, 8) }, knob)
+				Visible = false,
+			}, row)
 
 			local toggle = {
 				Value = toggleConfig.Default or false,
@@ -556,15 +596,11 @@ function UILibrary:CreateWindow(config)
 
 			local function apply(v)
 				toggle.Value = v
-				TweenService:Create(pill, TweenInfoFast, {
-					BackgroundColor3 = v and Theme.Accent or Theme.Disabled,
+				TweenService:Create(row, TweenInfoFast, {
+					TextColor3 = v and Theme.Accent or Theme.TextDim,
+					BackgroundColor3 = v and Theme.PanelHover or Theme.Panel,
 				}):Play()
-				TweenService:Create(knob, TweenInfoFast, {
-					Position = v and UDim2.new(1, -18, 0.5, 0) or UDim2.new(0, 2, 0.5, 0),
-				}):Play()
-				TweenService:Create(label, TweenInfoFast, {
-					TextColor3 = v and Theme.Text or Theme.TextDim,
-				}):Play()
+				divider.Visible = v
 			end
 
 			function toggle:Set(v, fire)
@@ -585,6 +621,17 @@ function UILibrary:CreateWindow(config)
 				return toggle.Value
 			end
 
+			row.MouseEnter:Connect(function()
+				if not toggle.Value then
+					TweenService:Create(row, TweenInfoFast, { TextColor3 = Theme.Text }):Play()
+					TweenService:Create(row, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
+				end
+			end)
+			row.MouseLeave:Connect(function()
+				if not toggle.Value then
+					apply(toggle.Value)
+				end
+			end)
 			row.MouseButton1Click:Connect(function()
 				toggle:Toggle()
 			end)
@@ -594,40 +641,51 @@ function UILibrary:CreateWindow(config)
 		end
 
 		-- ============================================================
-		-- 名前入力欄追加 (好きな名前を入力)
+		-- 名前入力欄追加 (タイトル + 角丸入力ボックス)
 		-- ============================================================
 		function dropdown:AddNameInput(inputConfig)
 			inputConfig = inputConfig or {}
 
-			local row = makeRow(36)
+			local row = New("TextButton", {
+				Size = UDim2.new(1, 0, 0, 58),
+				BackgroundColor3 = Theme.Panel,
+				AutoButtonColor = false,
+				Text = "",
+				BorderSizePixel = 0,
+			}, moduleList)
 
 			local label = New("TextLabel", {
-				Text = inputConfig.Text or "名前",
+				Text = inputConfig.Text or "Name",
 				Font = FONT_INPUT,
-				TextSize = 14,
+				TextSize = 12,
 				TextColor3 = Theme.Text,
 				BackgroundTransparency = 1,
-				Position = UDim2.new(0, 8, 0, 0),
-				Size = UDim2.new(0, 0.4, 1, 0),
+				Position = UDim2.fromOffset(10, 3),
+				Size = UDim2.new(1, -10, 0, 20),
 				TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Center,
 			}, row)
 
-			local box = New("TextBox", {
-				Position = UDim2.new(0.4, 4, 0, 5),
-				Size = UDim2.new(0.6, -14, 0, 26),
+			local holder = New("Frame", {
+				Position = UDim2.fromOffset(10, 23),
+				Size = UDim2.new(1, -20, 0, 29),
 				BackgroundColor3 = Theme.Input,
 				BorderSizePixel = 0,
-				PlaceholderText = inputConfig.Placeholder or "好きな名前を入力...",
-				PlaceholderColor3 = Theme.TextDim,
-				Text = inputConfig.Default or "",
-				TextColor3 = Theme.Text,
-				Font = FONT_INPUT,
-				TextSize = 14,
-				ClearTextOnFocus = true,
 			}, row)
-			New("UICorner", { CornerRadius = UDim.new(0, 6) }, box)
-			New("UIStroke", { Color = Theme.Border, Thickness = 1, Transparency = 0.5 }, box)
+			New("UICorner", { CornerRadius = UDim.new(0, 4) }, holder)
+
+			local box = New("TextBox", {
+				Position = UDim2.fromOffset(8, 0),
+				Size = UDim2.new(1, -8, 1, 0),
+				BackgroundTransparency = 1,
+				ClearTextOnFocus = false,
+				PlaceholderText = inputConfig.Placeholder or "Click to set",
+				PlaceholderColor3 = Theme.Placeholder,
+				Text = inputConfig.Default or "",
+				TextColor3 = Theme.TextDim,
+				Font = FONT_INPUT,
+				TextSize = 12,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}, holder)
 
 			local input = { Value = inputConfig.Default or "" }
 
@@ -644,6 +702,10 @@ function UILibrary:CreateWindow(config)
 				input:Set("")
 			end
 
+			row.MouseButton1Click:Connect(function()
+				box:CaptureFocus()
+			end)
+
 			box.FocusLost:Connect(function(enterPressed)
 				input.Value = box.Text
 				if inputConfig.Callback then
@@ -655,7 +717,7 @@ function UILibrary:CreateWindow(config)
 		end
 
 		-- ============================================================
-		-- スライダー追加
+		-- スライダー追加 (細バー + 円形ノブ + 値ラベル)
 		-- ============================================================
 		function dropdown:AddSlider(sliderConfig)
 			sliderConfig = sliderConfig or {}
@@ -664,61 +726,57 @@ function UILibrary:CreateWindow(config)
 			local max = sliderConfig.Max or 100
 			local decimals = sliderConfig.Decimals or 0
 
-			local row = makeRow(40)
+			local row = New("TextButton", {
+				Size = UDim2.new(1, 0, 0, 50),
+				BackgroundColor3 = Theme.Panel,
+				AutoButtonColor = false,
+				Text = "",
+				BorderSizePixel = 0,
+			}, moduleList)
 
 			local label = New("TextLabel", {
 				Text = sliderConfig.Text or "Slider",
 				Font = FONT_TEXT,
-				TextSize = 14,
-				TextColor3 = Theme.Text,
+				TextSize = 11,
+				TextColor3 = Theme.TextDim,
 				BackgroundTransparency = 1,
-				Position = UDim2.new(0, 12, 0, 0),
-				Size = UDim2.new(1, -110, 0, 20),
+				Position = UDim2.fromOffset(10, 2),
+				Size = UDim2.new(1, -80, 0, 30),
 				TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Center,
 			}, row)
-			MakeOutline(label, 0.4)
 
-			local valueLabel = New("TextLabel", {
+			local valueLabel = New("TextButton", {
 				Text = "",
 				Font = FONT_TEXT,
-				TextSize = 13,
-				TextColor3 = Theme.Accent,
+				TextSize = 11,
+				TextColor3 = Theme.TextDim,
 				BackgroundTransparency = 1,
-				Position = UDim2.new(1, -104, 0, 0),
-				Size = UDim2.new(0, 92, 0, 20),
+				Position = UDim2.new(1, -69, 0, 9),
+				Size = UDim2.fromOffset(60, 15),
 				TextXAlignment = Enum.TextXAlignment.Right,
-				TextYAlignment = Enum.TextYAlignment.Center,
 			}, row)
 
-			local bar = New("TextButton", {
-				Position = UDim2.new(0, 12, 0, 24),
-				Size = UDim2.new(1, -24, 0, 12),
-				BackgroundColor3 = Theme.Input,
-				AutoButtonColor = false,
-				Text = "",
+			local bar = New("Frame", {
+				Position = UDim2.fromOffset(10, 37),
+				Size = UDim2.new(1, -20, 0, 2),
+				BackgroundColor3 = Theme.SliderTrack,
 				BorderSizePixel = 0,
 			}, row)
-			New("UICorner", { CornerRadius = UDim.new(0, 6) }, bar)
-			New("UIStroke", { Color = Theme.Border, Thickness = 1, Transparency = 0.5 }, bar)
 
 			local fill = New("Frame", {
 				Size = UDim2.fromScale(0, 1),
-				Position = UDim2.new(0, 0, 0.5, 0),
-				AnchorPoint = Vector2.new(0, 0.5),
 				BackgroundColor3 = Theme.Accent,
 				BorderSizePixel = 0,
 			}, bar)
-			New("UICorner", { CornerRadius = UDim.new(0, 6) }, fill)
 
 			local knob = New("Frame", {
-				Size = UDim2.fromOffset(10, 16),
-				Position = UDim2.new(0, 0, 0.5, 0),
+				Size = UDim2.fromOffset(14, 14),
+				Position = UDim2.new(1, 0, 0.5, 0),
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = Theme.Text,
+				BackgroundColor3 = Theme.Accent,
 				BorderSizePixel = 0,
-			}, bar)
-			New("UICorner", { CornerRadius = UDim.new(0, 4) }, knob)
+			}, fill)
+			New("UICorner", { CornerRadius = UDim.new(1, 0) }, knob)
 
 			local slider = {
 				Value = min,
@@ -739,7 +797,6 @@ function UILibrary:CreateWindow(config)
 
 				local frac = (v - min) / (max - min)
 				fill.Size = UDim2.fromScale(frac, 1)
-				knob.Position = UDim2.new(frac, 0, 0.5, 0)
 				valueLabel.Text = string.format("%." .. decimals .. "f", v)
 
 				if fire ~= false then
@@ -755,13 +812,14 @@ function UILibrary:CreateWindow(config)
 				update(v, fire)
 			end
 
-			bar.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			row.InputBegan:Connect(function(input)
+				if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch)
+					and input.Position.Y - row.AbsolutePosition.Y > 20 then
 					dragging = true
 					update(min + (max - min) * fractionFromInput(input), true)
 				end
 			end)
-			bar.InputEnded:Connect(function(input)
+			row.InputEnded:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 					dragging = false
 				end
@@ -772,33 +830,76 @@ function UILibrary:CreateWindow(config)
 				end
 			end)
 
+			-- 値ラベルクリックで直接数値入力
+			local custombox = New("TextBox", {
+				Position = valueLabel.Position,
+				Size = valueLabel.Size,
+				BackgroundTransparency = 1,
+				ClearTextOnFocus = false,
+				Font = FONT_TEXT,
+				TextSize = 11,
+				TextColor3 = Theme.TextDim,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				Visible = false,
+			}, row)
+			valueLabel.MouseButton1Click:Connect(function()
+				valueLabel.Visible = false
+				custombox.Visible = true
+				custombox.Text = tostring(slider.Value)
+				custombox:CaptureFocus()
+			end)
+			custombox.FocusLost:Connect(function(enter)
+				valueLabel.Visible = true
+				custombox.Visible = false
+				if enter and tonumber(custombox.Text) then
+					update(tonumber(custombox.Text), true)
+				end
+			end)
+
 			update(sliderConfig.Default or min, false)
 			return slider
 		end
 
 		-- ============================================================
-		-- ボタン追加
+		-- ボタン追加 (内枠ボタン、ホバーで明るくなる)
 		-- ============================================================
 		function dropdown:AddButton(buttonConfig)
 			buttonConfig = buttonConfig or {}
 
-			local row = makeRow(34)
-			if buttonConfig.Color then
-				row.BackgroundColor3 = buttonConfig.Color
-			end
+			local row = New("TextButton", {
+				Size = UDim2.new(1, 0, 0, 31),
+				BackgroundColor3 = Theme.Panel,
+				AutoButtonColor = false,
+				Text = "",
+				BorderSizePixel = 0,
+			}, moduleList)
+
+			local holder = New("Frame", {
+				Position = UDim2.fromOffset(10, 2),
+				Size = UDim2.new(1, -20, 0, 27),
+				BackgroundColor3 = Theme.ButtonHolder,
+				BorderSizePixel = 0,
+			}, row)
+			New("UICorner", { CornerRadius = UDim.new(0, 4) }, holder)
 
 			local label = New("TextLabel", {
 				Text = buttonConfig.Text or "Button",
 				Font = FONT_TEXT,
 				TextSize = 14,
-				TextColor3 = Theme.Text,
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 1, 0),
+				TextColor3 = Theme.TextDim,
+				BackgroundColor3 = Theme.Panel,
+				Position = UDim2.fromOffset(2, 2),
+				Size = UDim2.new(1, -4, 1, -4),
 				TextXAlignment = Enum.TextXAlignment.Center,
-				TextYAlignment = Enum.TextYAlignment.Center,
-			}, row)
-			MakeOutline(label, 0.4)
+			}, holder)
+			New("UICorner", { CornerRadius = UDim.new(0, 4) }, label)
 
+			row.MouseEnter:Connect(function()
+				TweenService:Create(holder, TweenInfoFast, { BackgroundColor3 = Theme.ButtonHover }):Play()
+			end)
+			row.MouseLeave:Connect(function()
+				TweenService:Create(holder, TweenInfoFast, { BackgroundColor3 = Theme.ButtonHolder }):Play()
+			end)
 			row.MouseButton1Click:Connect(function()
 				task.spawn(buttonConfig.Callback or function() end)
 			end)
