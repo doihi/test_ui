@@ -3,8 +3,8 @@
 	Minecraft Client 風 Roblox UI ライブラリ (Lunar / Badlion 風)
 
 	特徴:
-	 ・ 横長ウィンドウに カテゴリタブ を上部に横並び表示 (Combat / Movement / Render / Utility など)
-	 ・ タブをクリック (右クリックでも可) でパネルが下にスライドして切り替わる
+	 ・ Vape V4 風レイアウト: 左にカテゴリーリスト、右に選択中のカテゴリーの設定パネル
+	 ・ カテゴリーはクリックで切替、選択中は左端にアクセントバーが表示される
 	 ・ 各カテゴリの中に 好きな名前を入力できる 名前欄 (TextBox)
 	 ・ トグルはクリックで ON/OFF。ON になると enabled color (アクセントカラー) に変化
 	 ・ スライダー・ボタンも同梱
@@ -13,13 +13,13 @@
 		local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/あなたのURL/UI_library.lua"))()
 		-- またはソースコードを直接スクリプトに貼り付け
 
-		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client", Size = UDim2.fromOffset(720, 460) })
+		local UI = UILibrary:CreateWindow({ Name = "Minecraft Client", Size = UDim2.fromOffset(570, 360) })
 
 		local Combat = UI:CreateDropdown("Combat")
 		Combat:AddToggle({ Text = "Kill Aura", Default = true, Callback = function(v) print(v) end })
 		Combat:AddNameInput({ Text = "名前", Placeholder = "好きな名前を入力", Callback = function(name) print(name) end })
 
-		-- カテゴリはタブをクリック (右クリックでも可) で切り替えられます
+		-- カテゴリーは左のリストからクリックで切り替えられます
 
 	CreateWindow の追加オプション:
 		OutlineColor = Color3.fromRGB(r, g, b) -- ウィンドウのアウトラインカラー
@@ -57,7 +57,8 @@ end
 -- テーマ (Minecraft 風のダークUI)
 local Theme = {
 	Background    = Color3.fromRGB(16, 16, 16),   -- ウィンドウ背景
-	Panel         = Color3.fromRGB(30, 30, 30),   -- 行 / ドロップダウン
+	Sidebar       = Color3.fromRGB(21, 21, 21),   -- カテゴリーリスト (左サイドバー)
+	Panel         = Color3.fromRGB(30, 30, 30),   -- 行
 	PanelHover    = Color3.fromRGB(42, 42, 42),
 	Input         = Color3.fromRGB(12, 12, 12),   -- 入力欄
 	Border        = Color3.fromRGB(78, 78, 78),
@@ -74,7 +75,6 @@ local Theme = {
 
 -- 設定
 local Settings = {
-	AnimationSpeed = 0.28,  -- スライドアニメーションの速さ
 	HoverSpeed     = 0.12,
 	Glow           = true,  -- ウィンドウ外側のグローを有効化
 	GlowSize       = 24,    -- グロー画像の広がり (px)
@@ -85,7 +85,6 @@ local FONT_TITLE = resolveFont("Minecraft", resolveFont("GothamSemibold", Enum.F
 local FONT_TEXT  = resolveFont("Minecraft", resolveFont("Gotham", Enum.Font.Arial))
 local FONT_INPUT = resolveFont("Gotham", Enum.Font.Arial) -- 名前入力欄は日本語対応フォント
 
-local TweenInfoOut  = TweenInfo.new(Settings.AnimationSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TweenInfoFast = TweenInfo.new(Settings.HoverSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 UILibrary.Theme = Theme
@@ -186,7 +185,7 @@ function UILibrary:CreateWindow(config)
 	protectgui(screenGui)
 	screenGui.Parent = gethui()
 
-	local size = config.Size or UDim2.fromOffset(720, 460) -- 横長 (ランドスケープ)
+	local size = config.Size or UDim2.fromOffset(570, 360) -- Vape V4 風のコンパクトな横長
 	local position = config.Position or UDim2.new(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2)
 
 	-- アウトライン / グロー設定 (config で上書き可能)
@@ -281,26 +280,30 @@ function UILibrary:CreateWindow(config)
 		TextYAlignment = Enum.TextYAlignment.Center,
 	}, titleBar)
 
-	-- カテゴリタブ (上部に横並び)
-	local tabBar = New("Frame", {
-		Name = "TabBar",
-		Position = UDim2.new(0, 10, 0, 50),
-		Size = UDim2.new(1, -20, 0, 30),
-		BackgroundTransparency = 1,
+	-- カテゴリーリスト (Vape V4 風: 左サイドバー)
+	local categoryBar = New("Frame", {
+		Name = "CategoryBar",
+		Position = UDim2.new(0, 0, 0, 40),
+		Size = UDim2.new(0, 110, 1, -40),
+		BackgroundColor3 = Theme.Sidebar,
 		BorderSizePixel = 0,
 	}, main)
-	local tabLayout = New("UIListLayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 6),
+	New("Frame", {
+		Size = UDim2.new(0, 1, 1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		BackgroundColor3 = Theme.Border,
+		BorderSizePixel = 0,
+	}, categoryBar)
+	local categoryList = New("UIListLayout", {
+		Padding = UDim.new(0, 2),
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-	}, tabBar)
+	}, categoryBar)
 
-	-- パネル表示領域 (選択中のカテゴリを表示)
+	-- 設定パネル表示領域 (選択中のカテゴリーを表示)
 	local panelArea = New("ScrollingFrame", {
 		Name = "PanelArea",
-		Position = UDim2.new(0, 10, 0, 86),
-		Size = UDim2.new(1, -20, 1, -94),
+		Position = UDim2.new(0, 116, 0, 48),
+		Size = UDim2.new(1, -124, 1, -56),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
@@ -308,43 +311,38 @@ function UILibrary:CreateWindow(config)
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 	}, main)
 
-	-- タブ選択管理
-	local activeTab = nil
-	local tabSelected = false
+	-- カテゴリー選択管理
+	local activeDropdown = nil
 	local function updateCanvas()
 		local h = 0
-		if activeTab and activeTab._panel then
-			h = activeTab._panel.Size.Y.Offset
+		if activeDropdown and activeDropdown._panel then
+			h = activeDropdown._panel.Size.Y.Offset
 		end
 		panelArea.CanvasSize = UDim2.fromOffset(0, h)
 	end
-	function window:SelectTab(dropdown, animate)
-		if activeTab == dropdown then
+	local function selectCategory(dropdown)
+		if activeDropdown == dropdown then
 			return
 		end
-		if activeTab then
-			activeTab._panel.Visible = false
-			activeTab._tab.BackgroundColor3 = Theme.Panel
-			activeTab._tab.TextColor3 = Theme.TextDim
-			activeTab.Open = false
+		if activeDropdown then
+			activeDropdown._panel.Visible = false
+			activeDropdown._indicator.Visible = false
+			activeDropdown._button.BackgroundColor3 = Theme.Sidebar
+			activeDropdown._buttonLabel.TextColor3 = Theme.TextDim
+			activeDropdown.Open = false
 		end
-		activeTab = dropdown
-		tabSelected = true
+		activeDropdown = dropdown
 		dropdown.Open = true
 		dropdown._panel.Visible = true
 		dropdown._panel.Size = UDim2.new(1, 0, 0, dropdown._contentHeight())
-		dropdown._tab.BackgroundColor3 = Theme.Accent
-		dropdown._tab.TextColor3 = Theme.Background
-		if animate ~= false then
-			dropdown._panel.Position = UDim2.new(0, 0, 0, -24)
-			TweenService:Create(dropdown._panel, TweenInfoOut, {
-				Position = UDim2.new(0, 0, 0, 0),
-			}):Play()
-		else
-			dropdown._panel.Position = UDim2.new(0, 0, 0, 0)
-		end
+		dropdown._indicator.Visible = true
+		dropdown._button.BackgroundColor3 = Theme.PanelHover
+		dropdown._buttonLabel.TextColor3 = Theme.Text
 		panelArea.CanvasPosition = Vector2.zero
 		updateCanvas()
+	end
+	function window:SelectTab(dropdown, animate)
+		selectCategory(dropdown)
 	end
 
 	-- ドラッグで移動 (文字等に阻まれないよう最前面の透明領域で受ける)
@@ -399,7 +397,7 @@ function UILibrary:CreateWindow(config)
 	end
 
 	-- ============================================================
-	-- カテゴリ作成 (上部のタブ + パネル)
+	-- カテゴリ作成 (左サイドバーに追加、右側パネルで表示)
 	-- ============================================================
 	function window:CreateDropdown(name, dropdownConfig)
 		dropdownConfig = dropdownConfig or {}
@@ -408,41 +406,55 @@ function UILibrary:CreateWindow(config)
 		dropdown.Open = false
 		dropdown._rowOrder = 1
 
-		-- タブ (上部に横並び)
-		local tab = New("TextButton", {
-			Name = "Tab_" .. tostring(name),
-			Size = UDim2.new(0, 0, 0, 30),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = Theme.Panel,
+		-- サイドバーのカテゴリーボタン
+		local button = New("TextButton", {
+			Name = "Category_" .. tostring(name),
+			Size = UDim2.new(1, 0, 0, 32),
+			BackgroundColor3 = Theme.Sidebar,
 			AutoButtonColor = false,
-			Text = name or "Tab",
+			Text = "",
+			BorderSizePixel = 0,
+		}, categoryBar)
+
+		local buttonLabel = New("TextLabel", {
+			Text = name or "Category",
 			Font = FONT_TEXT,
 			TextSize = 15,
 			TextColor3 = Theme.TextDim,
-			TextStrokeColor3 = Theme.Outline,
-			TextStrokeTransparency = 0.35,
+			BackgroundTransparency = 1,
+			Position = UDim2.new(0, 12, 0, 0),
+			Size = UDim2.new(1, -12, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+		}, button)
+		MakeOutline(buttonLabel, 0.4)
+
+		-- 選択中を示す左端のアクセントバー
+		local indicator = New("Frame", {
+			Name = "Indicator",
+			Size = UDim2.new(0, 3, 1, 0),
+			Position = UDim2.new(0, 0, 0, 0),
+			BackgroundColor3 = Theme.Accent,
 			BorderSizePixel = 0,
-		}, tabBar)
-		New("UICorner", { CornerRadius = UDim.new(0, 8) }, tab)
+			Visible = false,
+		}, button)
+		New("UICorner", { CornerRadius = UDim.new(0, 1) }, indicator)
 
-		tab.MouseEnter:Connect(function()
-			if activeTab ~= dropdown then
-				TweenService:Create(tab, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
+		button.MouseEnter:Connect(function()
+			if activeDropdown ~= dropdown then
+				TweenService:Create(button, TweenInfoFast, { BackgroundColor3 = Theme.PanelHover }):Play()
 			end
 		end)
-		tab.MouseLeave:Connect(function()
-			if activeTab ~= dropdown then
-				TweenService:Create(tab, TweenInfoFast, { BackgroundColor3 = Theme.Panel }):Play()
+		button.MouseLeave:Connect(function()
+			if activeDropdown ~= dropdown then
+				TweenService:Create(button, TweenInfoFast, { BackgroundColor3 = Theme.Sidebar }):Play()
 			end
 		end)
-		tab.MouseButton1Click:Connect(function()
-			window:SelectTab(dropdown)
-		end)
-		tab.MouseButton2Click:Connect(function()
+		button.MouseButton1Click:Connect(function()
 			window:SelectTab(dropdown)
 		end)
 
-		-- パネル (タブの中身、選択時のみ表示)
+		-- パネル (右側、選択時のみ表示)
 		local panel = New("Frame", {
 			Name = "Panel_" .. tostring(name),
 			Size = UDim2.new(1, 0, 0, 0),
@@ -468,7 +480,9 @@ function UILibrary:CreateWindow(config)
 			end
 		end)
 
-		dropdown._tab = tab
+		dropdown._button = button
+		dropdown._buttonLabel = buttonLabel
+		dropdown._indicator = indicator
 		dropdown._panel = panel
 		dropdown._contentHeight = contentHeight
 
@@ -593,15 +607,15 @@ function UILibrary:CreateWindow(config)
 				TextSize = 14,
 				TextColor3 = Theme.Text,
 				BackgroundTransparency = 1,
-				Position = UDim2.new(0, 12, 0, 0),
-				Size = UDim2.new(0, 90, 1, 0),
+				Position = UDim2.new(0, 8, 0, 0),
+				Size = UDim2.new(0, 0.4, 1, 0),
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Center,
 			}, row)
 
 			local box = New("TextBox", {
-				Position = UDim2.new(0, 108, 0, 5),
-				Size = UDim2.new(1, -120, 0, 26),
+				Position = UDim2.new(0.4, 4, 0, 5),
+				Size = UDim2.new(0.6, -14, 0, 26),
 				BackgroundColor3 = Theme.Input,
 				BorderSizePixel = 0,
 				PlaceholderText = inputConfig.Placeholder or "好きな名前を入力...",
@@ -809,9 +823,9 @@ function UILibrary:CreateWindow(config)
 			end
 		end
 
-		-- 最初のカテゴリ or DefaultOpen なら最初から表示
+		-- 最初のカテゴリー or DefaultOpen なら最初から表示
 		task.defer(function()
-			if dropdownConfig.DefaultOpen or not tabSelected then
+			if dropdownConfig.DefaultOpen or activeDropdown == nil then
 				window:SelectTab(dropdown, false)
 			end
 		end)
