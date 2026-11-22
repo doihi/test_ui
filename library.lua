@@ -1,6 +1,6 @@
 -- test-ui.lua: embedded library (based on doihi_Library.lua)
 -- splash screen and library-origin UIStroke are removed; the API is Library.*
--- Window tabs are an icon-only bar at the bottom; title stays on top and content is in the middle.
+-- Window is split into three stacked visual windows: title, content, icon tabs.
 local Library = (function()
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
@@ -15335,8 +15335,10 @@ function Library:CreateWindow(WindowInfo)
     WindowInfo.SidebarCompactWidth = math.max(40 + TabButtonsStyle.Padding * 2, WindowInfo.SidebarCompactWidth)
     WindowInfo.SidebarCollapseThreshold = math.clamp(WindowInfo.SidebarCollapseThreshold, 0.1, 0.9)
     WindowInfo.CompactWidthActivation = math.max(40 + TabButtonsStyle.Padding * 2, WindowInfo.CompactWidthActivation)
-    --// [bottom-tabs] horizontal tab strip height
+    --// [3-panel] stacked windows: title / content / icon tabs
     local TabStripHeight = 40 + TabButtonsStyle.Padding * 2
+    local TitlePanelHeight = 48 + 20
+    local PanelGap = 6
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
 
@@ -15357,6 +15359,9 @@ function Library:CreateWindow(WindowInfo)
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
+    local TitlePanel
+    local ContentPanel
+    local TabPanel
     local DividerLine
     local TitleHolder
     local WindowTitle
@@ -15653,6 +15658,53 @@ function Library:CreateWindow(WindowInfo)
             Visible = false,
             Parent = ScreenGui,
         })
+        --// [3-panel] one invisible logical root, three separate visual windows \--
+        MainFrame.BackgroundTransparency = 1
+
+        TitlePanel = New("Frame", {
+            Name = "TitlePanel",
+            BackgroundColor3 = function()
+                return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
+            end,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.new(1, 0, 0, TitlePanelHeight),
+            ZIndex = 1,
+            Parent = MainFrame,
+        })
+        table.insert(Library.Corners, New("UICorner", {
+            CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+            Parent = TitlePanel,
+        }))
+
+        ContentPanel = New("Frame", {
+            Name = "ContentPanel",
+            BackgroundColor3 = function()
+                return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
+            end,
+            Position = UDim2.fromOffset(0, TitlePanelHeight + PanelGap),
+            Size = UDim2.new(1, 0, 1, -(TitlePanelHeight + TabStripHeight + PanelGap * 2)),
+            ZIndex = 1,
+            Parent = MainFrame,
+        })
+        table.insert(Library.Corners, New("UICorner", {
+            CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+            Parent = ContentPanel,
+        }))
+
+        TabPanel = New("Frame", {
+            Name = "TabPanel",
+            AnchorPoint = Vector2.new(0, 1),
+            BackgroundColor3 = "BackgroundColor",
+            Position = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(1, 0, 0, TabStripHeight),
+            ZIndex = 1,
+            Parent = MainFrame,
+        })
+        table.insert(Library.Corners, New("UICorner", {
+            CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+            Parent = TabPanel,
+        }))
+
         --// Elements defined outside CreateWindow need this to overlay the window
         Library.MainFrame = MainFrame
         Library:RegisterBackgroundTarget(MainFrame)
@@ -15670,14 +15722,14 @@ function Library:CreateWindow(WindowInfo)
             })
         )
         Library:AddOutline(MainFrame)
-        local TopDividerLine = Library:MakeLine(MainFrame, {
+        local TopDividerLine = Library:MakeLine(TitlePanel, {
             Position = UDim2.fromOffset(0, 48),
             Size = UDim2.new(1, 0, 0, 1),
         })
 
         DividerLine = New("Frame", {
             BackgroundColor3 = "OutlineColor",
-            Position = UDim2.new(0, 0, 1, -20 - TabStripHeight),
+            Position = UDim2.new(0, 0, 1, -TabStripHeight - PanelGap),
             Size = UDim2.new(1, 0, 0, 1),
             Parent = MainFrame,
             ZIndex = 2
@@ -15816,7 +15868,7 @@ function Library:CreateWindow(WindowInfo)
         TopBar = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 48),
-            Parent = MainFrame,
+            Parent = TitlePanel,
         })
         Library:MakeDraggable(MainFrame, TopBar, false, true, WindowSnapConfig)
 
@@ -16510,9 +16562,9 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20 + WindowInfo.CornerRadius),
-            Parent = MainFrame
+            Parent = TitlePanel
         })
-        local BottomDividerLine = Library:MakeLine(MainFrame, {
+        local BottomDividerLine = Library:MakeLine(TitlePanel, {
             AnchorPoint = Vector2.new(0, 1),
             Position = UDim2.new(0, 0, 1, -20),
             Size = UDim2.new(1, 0, 0, 1),
@@ -16523,7 +16575,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundTransparency = 1,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
-            Parent = MainFrame,
+            Parent = TitlePanel,
         })
         table.insert(
             Library.Corners,
@@ -16753,11 +16805,10 @@ function Library:CreateWindow(WindowInfo)
             ScrollingDirection = Enum.ScrollingDirection.X,
             BackgroundColor3 = "BackgroundColor",
             CanvasSize = UDim2.fromScale(0, 0),
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 0, 1, -20),
+            Position = UDim2.fromOffset(0, 0),
             ScrollBarThickness = 0,
-            Size = UDim2.new(1, 0, 0, TabStripHeight),
-            Parent = MainFrame,
+            Size = UDim2.fromScale(1, 1),
+            Parent = TabPanel,
         })
         New("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
@@ -16774,15 +16825,15 @@ function Library:CreateWindow(WindowInfo)
 
         --// Container \\--
         Container = New("Frame", {
-            AnchorPoint = Vector2.new(0, 0),
+            AnchorPoint = Vector2.zero,
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
             ClipsDescendants = true,
             Name = "Container",
-            Position = UDim2.fromOffset(0, 49),
-            Size = UDim2.new(1, 0, 1, -69 - TabStripHeight),
-            Parent = MainFrame,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromScale(1, 1),
+            Parent = ContentPanel,
         })
         New("UIPadding", {
             PaddingBottom = UDim.new(0, 0),
@@ -17275,7 +17326,7 @@ function Library:CreateWindow(WindowInfo)
         if AvatarPanelRefs.Holder and AvatarPanelRefs.Holder.Visible then
             Reserved = Reserved + 56
         end
-        Tabs.Size = UDim2.new(1, 0, 0, TabStripHeight)
+        Tabs.Size = UDim2.fromScale(1, 1)
     end
 
     local function SetUICorner(UICorner, Corner, HalfValue)
@@ -18245,19 +18296,13 @@ function Library:CreateWindow(WindowInfo)
     end
 
     function Window:GetSidebarWidth()
-        --// [bottom-tabs] this is the tab strip height
-        return Tabs.Size.Y.Offset
+        --// [3-panel] sidebar width is no longer used
+        return WindowInfo.SidebarCompactWidth
     end
 
     function Window:SetSidebarWidth(Width)
-        Width = math.clamp(Width, 40, 80)
-        Tabs.Size = UDim2.new(1, 0, 0, Width)
-        DividerLine.Position = UDim2.new(0, 0, 1, -20 - Width)
-        DividerLine.Size = UDim2.new(1, 0, 0, 1)
-        Container.Size = UDim2.new(1, 0, 1, -69 - Width)
-        if WindowInfo.EnableCompacting then
-            ApplyCompact()
-        end
+        --// [3-panel] panel geometry is fixed; keep the API for compatibility
+        return Window
     end
 
     function Window:ShowTabInfo(Name, Description)
