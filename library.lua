@@ -1,4 +1,6 @@
-
+-- test-ui.lua: embedded library (based on doihi_Library.lua)
+-- splash screen and library-origin UIStroke are removed; the API is Library.*
+-- Window is split into three stacked visual windows: title, content, icon tabs.
 local Library = (function()
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
@@ -12,6 +14,25 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
+local function SafeTweenCreate(Object, TweenInfo, Properties)
+    if typeof(Object) == "Instance" then
+        return TweenService:Create(Object, TweenInfo, Properties)
+    end
+    local NoOp = function() end
+    local Signal = {
+        Connect = function() return { Disconnect = NoOp } end,
+        Once = function() return { Disconnect = NoOp } end,
+        Wait = function() end,
+    }
+    return {
+        Play = NoOp,
+        Cancel = NoOp,
+        Pause = NoOp,
+        Destroy = NoOp,
+        Completed = Signal,
+        PlaybackState = Enum.PlaybackState.Completed,
+    }
+end
 
 local getgenv = getgenv or function()
     return shared
@@ -928,14 +949,20 @@ function Library:ApplySmoothScroll(ScrollingFrame: ScrollingFrame, PixelsPerTick
             return
         end
 
-        local Target = ScrollingFrame.CanvasPosition + Vector2.new(0, Delta)
-        local MaxY = math.max(0, ScrollingFrame.AbsoluteCanvasSize.Y - ScrollingFrame.AbsoluteWindowSize.Y)
-        Target = Vector2.new(Target.X, math.clamp(Target.Y, 0, MaxY))
+        local IsHorizontal = ScrollingFrame.ScrollingDirection == Enum.ScrollingDirection.X
+        local Target = ScrollingFrame.CanvasPosition + (IsHorizontal and Vector2.new(Delta, 0) or Vector2.new(0, Delta))
+        if IsHorizontal then
+            local MaxX = math.max(0, ScrollingFrame.AbsoluteCanvasSize.X - ScrollingFrame.AbsoluteWindowSize.X)
+            Target = Vector2.new(math.clamp(Target.X, 0, MaxX), 0)
+        else
+            local MaxY = math.max(0, ScrollingFrame.AbsoluteCanvasSize.Y - ScrollingFrame.AbsoluteWindowSize.Y)
+            Target = Vector2.new(0, math.clamp(Target.Y, 0, MaxY))
+        end
 
         if ActiveTween then
             StopTween(ActiveTween)
         end
-        ActiveTween = TweenService:Create(ScrollingFrame, Library.SmoothScrollInfo, {
+        ActiveTween = SafeTweenCreate(ScrollingFrame, Library.SmoothScrollInfo, {
             CanvasPosition = Target,
         })
         ActiveTween:Play()
@@ -1847,10 +1874,10 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
 end
 
 local function New(ClassName: string, Properties: { [string]: any }): any
+    local InstanceGG
     if ClassName == "UIStroke" then
-        --// [embedded] UIStroke is intentionally not created.
-        --// An inert proxy swallows every property assignment so the
-        --// original component code works without outlines.
+        --// [embedded] UIStroke is intentionally not created; use an inert
+        --// proxy that still passes through FillInstance and Registry.
         local NoStroke = {}
         setmetatable(NoStroke, {
             __newindex = function() end,
@@ -1860,10 +1887,10 @@ local function New(ClassName: string, Properties: { [string]: any }): any
                 end
             end,
         })
-        return NoStroke
+        InstanceGG = NoStroke
+    else
+        InstanceGG = Instance.new(ClassName)
     end
-
-    local InstanceGG = Instance.new(ClassName)
 
     if Templates[ClassName] then
         FillInstance(Templates[ClassName], InstanceGG)
@@ -1888,8 +1915,8 @@ local function New(ClassName: string, Properties: { [string]: any }): any
             if not (Library.Animations and Library.Animations.ButtonClick) then
                 return
             end
-            local Down = TweenService:Create(ClickScale, TweenInfo.new(0.055, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.965 })
-            local Up = TweenService:Create(ClickScale, TweenInfo.new(0.11, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+            local Down = SafeTweenCreate(ClickScale, TweenInfo.new(0.055, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.965 })
+            local Up = SafeTweenCreate(ClickScale, TweenInfo.new(0.11, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
             Down:Play()
             Down.Completed:Once(function() Up:Play() end)
         end)
@@ -2949,7 +2976,7 @@ function Library:PlayTabAnimation(Tab, Showing: boolean, OnComplete: (() -> ())?
         TabContainer.Position = StartPosition
         TabContainer.Visible = true
 
-        local Tween = TweenService:Create(TabContainer, TweenInfo, {
+        local Tween = SafeTweenCreate(TabContainer, TweenInfo, {
             Position = UDim2.fromScale(0, 0)
         })
 
@@ -4338,7 +4365,7 @@ function Library:AddContextMenu(
             Menu.Size = UDim2.new(OpenSize.X.Scale, OpenSize.X.Offset, 0, 0)
             Menu.Visible = true
 
-            local Tween = TweenService:Create(Menu, TweenInfo, { Size = OpenSize })
+            local Tween = SafeTweenCreate(Menu, TweenInfo, { Size = OpenSize })
             Table.OpenCloseTween = Tween
 
             local Connection; Connection = Library:GiveSignal(Tween.Completed:Once(function()
@@ -4424,7 +4451,7 @@ function Library:AddContextMenu(
             local CurrentSize = Menu.Size
             local CollapsedSize = UDim2.new(CurrentSize.X.Scale, CurrentSize.X.Offset, 0, 0)
 
-            local Tween = TweenService:Create(Menu, TweenInfo, { Size = CollapsedSize })
+            local Tween = SafeTweenCreate(Menu, TweenInfo, { Size = CollapsedSize })
             Table.OpenCloseTween = Tween
 
             local Connection; Connection = Library:GiveSignal(Tween.Completed:Once(function(PlaybackState)
@@ -4538,11 +4565,10 @@ table.insert(
         Parent = TooltipLabel,
     })
 )
-New("UIStroke", {
+local TooltipStroke = New("UIStroke", {
     Color = "OutlineColor",
     Parent = TooltipLabel,
 })
-local TooltipStroke = TooltipLabel:FindFirstChildOfClass("UIStroke")
 --// Drives the pop animation. Kept out of Library.Scales on purpose so the DPI
 --// scaling pass doesn't overwrite the pop each time it runs.
 local TooltipPopScale = New("UIScale", {
@@ -4588,9 +4614,9 @@ local function ShowTooltip()
     TooltipStroke.Transparency = 1
     TooltipLabel.Visible = true
 
-    local Scale = TweenService:Create(TooltipPopScale, TOOLTIP_SHOW_TWEEN, { Scale = 1 })
-    local Body = TweenService:Create(TooltipLabel, TOOLTIP_SHOW_TWEEN, { BackgroundTransparency = 0, TextTransparency = 0 })
-    local Stroke = TweenService:Create(TooltipStroke, TOOLTIP_SHOW_TWEEN, { Transparency = 0 })
+    local Scale = SafeTweenCreate(TooltipPopScale, TOOLTIP_SHOW_TWEEN, { Scale = 1 })
+    local Body = SafeTweenCreate(TooltipLabel, TOOLTIP_SHOW_TWEEN, { BackgroundTransparency = 0, TextTransparency = 0 })
+    local Stroke = SafeTweenCreate(TooltipStroke, TOOLTIP_SHOW_TWEEN, { Transparency = 0 })
 
     TooltipTweens = { Scale, Body, Stroke }
     Scale:Play()
@@ -4607,9 +4633,9 @@ local function HideTooltip()
         return
     end
 
-    local Scale = TweenService:Create(TooltipPopScale, TOOLTIP_HIDE_TWEEN, { Scale = TOOLTIP_START_SCALE })
-    local Body = TweenService:Create(TooltipLabel, TOOLTIP_HIDE_TWEEN, { BackgroundTransparency = 1, TextTransparency = 1 })
-    local Stroke = TweenService:Create(TooltipStroke, TOOLTIP_HIDE_TWEEN, { Transparency = 1 })
+    local Scale = SafeTweenCreate(TooltipPopScale, TOOLTIP_HIDE_TWEEN, { Scale = TOOLTIP_START_SCALE })
+    local Body = SafeTweenCreate(TooltipLabel, TOOLTIP_HIDE_TWEEN, { BackgroundTransparency = 1, TextTransparency = 1 })
+    local Stroke = SafeTweenCreate(TooltipStroke, TOOLTIP_HIDE_TWEEN, { Transparency = 1 })
 
     TooltipTweens = { Scale, Body, Stroke }
     Body.Completed:Connect(function(State)
@@ -5018,13 +5044,13 @@ do
         local function TweenPickerTextTransparency(Transparency: number)
             StopTween(PickerHoverTween)
 
-            PickerHoverTween = TweenService:Create(Picker, Library.TweenInfo, {
+            PickerHoverTween = SafeTweenCreate(Picker, Library.TweenInfo, {
                 TextTransparency = Transparency,
             })
             PickerHoverTween:Play()
 
             if SlidingLabel then
-                TweenService:Create(SlidingLabel, Library.TweenInfo, {
+                SafeTweenCreate(SlidingLabel, Library.TweenInfo, {
                     TextTransparency = Transparency,
                 }):Play()
             end
@@ -5291,7 +5317,7 @@ do
                     return
                 end
 
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     BackgroundTransparency = 0.7,
                     TextTransparency = 0.1,
                 }):Play()
@@ -5302,7 +5328,7 @@ do
                     return
                 end
 
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     BackgroundTransparency = 1,
                     TextTransparency = 0.5,
                 }):Play()
@@ -5385,11 +5411,11 @@ do
                                 Enum.EasingDirection.InOut
                             )
 
-                            SlideForwardTween = TweenService:Create(SlidingLabel, TweenInfo, {
+                            SlideForwardTween = SafeTweenCreate(SlidingLabel, TweenInfo, {
                                 Position = UDim2.fromOffset(-OverflowDistance, 0),
                             })
 
-                            SlideBackTween = TweenService:Create(SlidingLabel, TweenInfo, {
+                            SlideBackTween = SafeTweenCreate(SlidingLabel, TweenInfo, {
                                 Position = UDim2.fromOffset(4.5, 0),
                             })
 
@@ -6405,13 +6431,13 @@ do
                 end))
 
                 table.insert(ColorPicker.Connections, Button.MouseEnter:Connect(function()
-                    TweenService:Create(Button, Library.TweenInfo, {
+                    SafeTweenCreate(Button, Library.TweenInfo, {
                         BackgroundTransparency = 0.7,
                     }):Play()
                 end))
 
                 table.insert(ColorPicker.Connections, Button.MouseLeave:Connect(function()
-                    TweenService:Create(Button, Library.TweenInfo, {
+                    SafeTweenCreate(Button, Library.TweenInfo, {
                         BackgroundTransparency = 1,
                     }):Play()
                 end))
@@ -6502,25 +6528,25 @@ do
         local PasteColorResetId = 0
 
         table.insert(ColorPicker.Connections, CopyColorButton.MouseEnter:Connect(function()
-            TweenService:Create(CopyColorButton, Library.TweenInfo, {
+            SafeTweenCreate(CopyColorButton, Library.TweenInfo, {
                 BackgroundColor3 = Library:GetBetterColor(Library.Scheme.MainColor, 10),
             }):Play()
         end))
 
         table.insert(ColorPicker.Connections, CopyColorButton.MouseLeave:Connect(function()
-            TweenService:Create(CopyColorButton, Library.TweenInfo, {
+            SafeTweenCreate(CopyColorButton, Library.TweenInfo, {
                 BackgroundColor3 = Library.Scheme.MainColor,
             }):Play()
         end))
 
         table.insert(ColorPicker.Connections, PasteColorButton.MouseEnter:Connect(function()
-            TweenService:Create(PasteColorButton, Library.TweenInfo, {
+            SafeTweenCreate(PasteColorButton, Library.TweenInfo, {
                 BackgroundColor3 = Library:GetBetterColor(Library.Scheme.MainColor, 10),
             }):Play()
         end))
 
         table.insert(ColorPicker.Connections, PasteColorButton.MouseLeave:Connect(function()
-            TweenService:Create(PasteColorButton, Library.TweenInfo, {
+            SafeTweenCreate(PasteColorButton, Library.TweenInfo, {
                 BackgroundColor3 = Library.Scheme.MainColor,
             }):Play()
         end))
@@ -6768,14 +6794,14 @@ do
 
             table.insert(ColorPicker.Connections, TextBoxInstance.Focused:Connect(function()
                 Library.Registry[Stroke].Color = "AccentColor"
-                TweenService:Create(Stroke, Library.TweenInfo, {
+                SafeTweenCreate(Stroke, Library.TweenInfo, {
                     Color = Library.Scheme.AccentColor,
                 }):Play()
             end))
 
             table.insert(ColorPicker.Connections, TextBoxInstance.FocusLost:Connect(function()
                 Library.Registry[Stroke].Color = "OutlineColor"
-                TweenService:Create(Stroke, Library.TweenInfo, {
+                SafeTweenCreate(Stroke, Library.TweenInfo, {
                     Color = Library.Scheme.OutlineColor,
                 }):Play()
             end))
@@ -7654,7 +7680,7 @@ do
                     return
                 end
 
-                Button.Tween = TweenService:Create(Button.Base, Library.TweenInfo, {
+                Button.Tween = SafeTweenCreate(Button.Base, Library.TweenInfo, {
                     TextTransparency = 0,
                 })
                 Button.Tween:Play()
@@ -7664,7 +7690,7 @@ do
                     return
                 end
 
-                Button.Tween = TweenService:Create(Button.Base, Library.TweenInfo, {
+                Button.Tween = SafeTweenCreate(Button.Base, Library.TweenInfo, {
                     TextTransparency = 0.4,
                 })
                 Button.Tween:Play()
@@ -8049,10 +8075,10 @@ do
                 return
             end
 
-            TweenService:Create(Label, Library.TweenInfo, {
+            SafeTweenCreate(Label, Library.TweenInfo, {
                 TextTransparency = Toggle.Value and 0 or 0.4,
             }):Play()
-            TweenService:Create(CheckImage, Library.TweenInfo, {
+            SafeTweenCreate(CheckImage, Library.TweenInfo, {
                 ImageTransparency = Toggle.Value and 0 or 1,
             }):Play()
 
@@ -8322,10 +8348,10 @@ do
                 return
             end
 
-            TweenService:Create(Label, Library.TweenInfo, {
+            SafeTweenCreate(Label, Library.TweenInfo, {
                 TextTransparency = Toggle.Value and 0 or 0.4,
             }):Play()
-            TweenService:Create(Ball, Library.TweenInfo, {
+            SafeTweenCreate(Ball, Library.TweenInfo, {
                 AnchorPoint = Vector2.new(Offset, 0),
                 Position = UDim2.fromScale(Offset, 0),
             }):Play()
@@ -8657,7 +8683,7 @@ do
             end
 
             Library.Registry[BoxStroke].Color = "AccentColor"
-            TweenService:Create(BoxStroke, Library.TweenInfo, {
+            SafeTweenCreate(BoxStroke, Library.TweenInfo, {
                 Color = Library.Scheme.AccentColor,
             }):Play()
         end))
@@ -8668,7 +8694,7 @@ do
             end
 
             Library.Registry[BoxStroke].Color = "OutlineColor"
-            TweenService:Create(BoxStroke, Library.TweenInfo, {
+            SafeTweenCreate(BoxStroke, Library.TweenInfo, {
                 Color = Library.Scheme.OutlineColor,
             }):Play()
         end))
@@ -8971,15 +8997,15 @@ do
             local Edge = UDim.new(X, (0.5 - X) * Diameter)
             local Position = UDim2.new(Edge.Scale, Edge.Offset, 0.5, 0)
 
-            TweenService:Create(Ball, SLIDER_BALL_TWEEN, {
+            SafeTweenCreate(Ball, SLIDER_BALL_TWEEN, {
                 Size = Size,
                 Position = Position,
             }):Play()
-            TweenService:Create(BallShadow, SLIDER_BALL_TWEEN, {
+            SafeTweenCreate(BallShadow, SLIDER_BALL_TWEEN, {
                 Size = Size,
                 Position = Position + UDim2.fromOffset(0, 1),
             }):Play()
-            TweenService:Create(Fill, SLIDER_BALL_TWEEN, {
+            SafeTweenCreate(Fill, SLIDER_BALL_TWEEN, {
                 Size = UDim2.new(Edge.Scale, Edge.Offset, 1, 0),
             }):Play()
         end
@@ -9192,7 +9218,7 @@ do
                 end
 
                 Library.Registry[InputTextBoxStroke].Color = "AccentColor"
-                TweenService:Create(InputTextBoxStroke, Library.TweenInfo, {
+                SafeTweenCreate(InputTextBoxStroke, Library.TweenInfo, {
                     Color = Library.Scheme.AccentColor,
                 }):Play()
             end))
@@ -9203,7 +9229,7 @@ do
                 end
 
                 Library.Registry[InputTextBoxStroke].Color = "DarkColor"
-                TweenService:Create(InputTextBoxStroke, Library.TweenInfo, {
+                SafeTweenCreate(InputTextBoxStroke, Library.TweenInfo, {
                     Color = Library.Scheme.DarkColor,
                 }):Play()
             end))
@@ -9914,14 +9940,14 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     return
                 end
 
-                TweenService:Create(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+                SafeTweenCreate(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
             end)
             ExpandButton.MouseLeave:Connect(function()
                 if Dropdown.Disabled then
                     return
                 end
 
-                TweenService:Create(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0.5 }):Play()
+                SafeTweenCreate(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0.5 }):Play()
             end)
 
             Library:AddTooltip("Expand", nil, ExpandButton)
@@ -9946,14 +9972,14 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             table.insert(Dropdown.Connections, SearchBox.Focused:Connect(function()
                 Library.Registry[DisplayStroke].Color = "AccentColor"
-                TweenService:Create(DisplayStroke, Library.TweenInfo, {
+                SafeTweenCreate(DisplayStroke, Library.TweenInfo, {
                     Color = Library.Scheme.AccentColor,
                 }):Play()
             end))
 
             table.insert(Dropdown.Connections, SearchBox.FocusLost:Connect(function()
                 Library.Registry[DisplayStroke].Color = "OutlineColor"
-                TweenService:Create(DisplayStroke, Library.TweenInfo, {
+                SafeTweenCreate(DisplayStroke, Library.TweenInfo, {
                     Color = Library.Scheme.OutlineColor,
                 }):Play()
             end))
@@ -10596,15 +10622,15 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     return
                 end
 
-                TweenService:Create(Container, Library.TweenInfo, {
+                SafeTweenCreate(Container, Library.TweenInfo, {
                     BackgroundTransparency = 0.85,
                 }):Play()
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0.25,
                 }):Play()
 
                 if Image then
-                    TweenService:Create(Image, Library.TweenInfo, {
+                    SafeTweenCreate(Image, Library.TweenInfo, {
                         ImageTransparency = 0.25,
                     }):Play()
                 end
@@ -10620,15 +10646,15 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     return
                 end
 
-                TweenService:Create(Container, Library.TweenInfo, {
+                SafeTweenCreate(Container, Library.TweenInfo, {
                     BackgroundTransparency = 1,
                 }):Play()
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0.5,
                 }):Play()
 
                 if Image then
-                    TweenService:Create(Image, Library.TweenInfo, {
+                    SafeTweenCreate(Image, Library.TweenInfo, {
                         ImageTransparency = 0.5,
                     }):Play()
                 end
@@ -10736,10 +10762,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                 })
 
                 Button.MouseEnter:Connect(function()
-                    TweenService:Create(Button, Library.TweenInfo, { TextTransparency = 0 }):Play()
+                    SafeTweenCreate(Button, Library.TweenInfo, { TextTransparency = 0 }):Play()
                 end)
                 Button.MouseLeave:Connect(function()
-                    TweenService:Create(Button, Library.TweenInfo, { TextTransparency = 0.5 }):Play()
+                    SafeTweenCreate(Button, Library.TweenInfo, { TextTransparency = 0.5 }):Play()
                 end)
                 Button.MouseButton1Click:Connect(function()
                     ApplyBulkSelection(State, SearchBox and SearchBox.Text:lower() or nil)
@@ -11068,10 +11094,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
             })
 
             CloseButton.MouseEnter:Connect(function()
-                TweenService:Create(CloseButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(CloseButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
             end)
             CloseButton.MouseLeave:Connect(function()
-                TweenService:Create(CloseButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(CloseButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
             end)
             CloseButton.MouseButton1Click:Connect(function()
                 Dropdown:Collapse()
@@ -11220,10 +11246,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     })
 
                     Button.MouseEnter:Connect(function()
-                        TweenService:Create(Item, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
+                        SafeTweenCreate(Item, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
                     end)
                     Button.MouseLeave:Connect(function()
-                        TweenService:Create(Item, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                        SafeTweenCreate(Item, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
                     end)
                     Button.MouseButton1Click:Connect(function()
                         ApplyBulkSelection(State, Search)
@@ -11318,14 +11344,14 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                             return
                         end
 
-                        TweenService:Create(Item, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
+                        SafeTweenCreate(Item, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
                     end)
                     Button.MouseLeave:Connect(function()
                         if IsValueSelected(Value) then
                             return
                         end
 
-                        TweenService:Create(Item, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                        SafeTweenCreate(Item, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
                     end)
                     Button.MouseButton1Click:Connect(function()
                         ToggleValue(Value)
@@ -11395,10 +11421,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
             ExpandScale.Scale = 0.94
             ExpandOverlay.Visible = true
 
-            ExpandFadeTween = TweenService:Create(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, {
+            ExpandFadeTween = SafeTweenCreate(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, {
                 BackgroundTransparency = 0.5,
             })
-            ExpandScaleTween = TweenService:Create(ExpandScale, DROPDOWN_EXPAND_TWEEN, {
+            ExpandScaleTween = SafeTweenCreate(ExpandScale, DROPDOWN_EXPAND_TWEEN, {
                 Scale = 1,
             })
 
@@ -11418,10 +11444,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             StopExpandTweens()
 
-            ExpandFadeTween = TweenService:Create(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, {
+            ExpandFadeTween = SafeTweenCreate(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, {
                 BackgroundTransparency = 1,
             })
-            ExpandScaleTween = TweenService:Create(ExpandScale, DROPDOWN_EXPAND_TWEEN, {
+            ExpandScaleTween = SafeTweenCreate(ExpandScale, DROPDOWN_EXPAND_TWEEN, {
                 Scale = 0.96,
             })
 
@@ -11718,11 +11744,11 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             ExpandButton.MouseEnter:Connect(function()
                 if Priority.Disabled then return end
-                TweenService:Create(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+                SafeTweenCreate(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
             end)
             ExpandButton.MouseLeave:Connect(function()
                 if Priority.Disabled then return end
-                TweenService:Create(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0.5 }):Play()
+                SafeTweenCreate(ExpandIconImage, Library.TweenInfo, { ImageTransparency = 0.5 }):Play()
             end)
 
             Library:AddTooltip("Expand", nil, ExpandButton)
@@ -11747,14 +11773,14 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             table.insert(Priority.Connections, SearchBox.Focused:Connect(function()
                 Library.Registry[DisplayStroke].Color = "AccentColor"
-                TweenService:Create(DisplayStroke, Library.TweenInfo, {
+                SafeTweenCreate(DisplayStroke, Library.TweenInfo, {
                     Color = Library.Scheme.AccentColor,
                 }):Play()
             end))
 
             table.insert(Priority.Connections, SearchBox.FocusLost:Connect(function()
                 Library.Registry[DisplayStroke].Color = "OutlineColor"
-                TweenService:Create(DisplayStroke, Library.TweenInfo, {
+                SafeTweenCreate(DisplayStroke, Library.TweenInfo, {
                     Color = Library.Scheme.OutlineColor,
                 }):Play()
             end))
@@ -11914,7 +11940,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                 if Value ~= SkipValue then
                     local Target = UDim2.fromOffset(0, (VisibleCount - 1) * ItemHeight)
                     if Animate then
-                        TweenService:Create(Row.Container, Library.TweenInfo, { Position = Target }):Play()
+                        SafeTweenCreate(Row.Container, Library.TweenInfo, { Position = Target }):Play()
                     else
                         Row.Container.Position = Target
                     end
@@ -11963,7 +11989,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     Bump(D)
                 end
             end
-            TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 0.6 }):Play()
+            SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 0.6 }):Play()
 
             --// Where inside the row the pointer grabbed it (real pixels)
             local GrabOffsetPx = StartInput.Position.Y - Container.AbsolutePosition.Y
@@ -12034,7 +12060,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                 for Obj, Z in ZBump do
                     Obj.ZIndex = Z
                 end
-                TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
 
                 StopDrag()
                 View.Relayout(nil, true)
@@ -12120,13 +12146,13 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             Button.MouseEnter:Connect(function()
                 if not Button.Active or (Dragging and DragValue == Row.Value) then return end
-                TweenService:Create(GripImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
-                TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 0.9 }):Play()
+                SafeTweenCreate(GripImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
+                SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 0.9 }):Play()
             end)
             Button.MouseLeave:Connect(function()
                 if Dragging and DragValue == Row.Value then return end
-                TweenService:Create(GripImage, Library.TweenInfo, { ImageTransparency = 0.6 }):Play()
-                TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(GripImage, Library.TweenInfo, { ImageTransparency = 0.6 }):Play()
+                SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
             end)
 
             Button.InputBegan:Connect(function(StartInput)
@@ -12212,7 +12238,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                 if Value ~= SkipValue then
                     local Target = UDim2.fromOffset(0, (VisibleCount - 1) * ExpandItemHeight)
                     if Animate then
-                        TweenService:Create(Row.Container, Library.TweenInfo, { Position = Target }):Play()
+                        SafeTweenCreate(Row.Container, Library.TweenInfo, { Position = Target }):Play()
                     else
                         Row.Container.Position = Target
                     end
@@ -12313,13 +12339,13 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             Button.MouseEnter:Connect(function()
                 if not Button.Active or (Dragging and DragValue == Row.Value) then return end
-                TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 0.85 }):Play()
-                TweenService:Create(GripImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
+                SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 0.85 }):Play()
+                SafeTweenCreate(GripImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
             end)
             Button.MouseLeave:Connect(function()
                 if Dragging and DragValue == Row.Value then return end
-                TweenService:Create(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
-                TweenService:Create(GripImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
+                SafeTweenCreate(Container, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(GripImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
             end)
 
             Button.InputBegan:Connect(function(StartInput)
@@ -12456,10 +12482,10 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                 Parent = CloseButton,
             })
             CloseButton.MouseEnter:Connect(function()
-                TweenService:Create(CloseButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(CloseButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
             end)
             CloseButton.MouseLeave:Connect(function()
-                TweenService:Create(CloseButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(CloseButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
             end)
             CloseButton.MouseButton1Click:Connect(function()
                 Priority:Collapse()
@@ -12585,8 +12611,8 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
             ExpandScale.Scale = 0.94
             ExpandOverlay.Visible = true
 
-            ExpandFadeTween = TweenService:Create(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, { BackgroundTransparency = 0.5 })
-            ExpandScaleTween = TweenService:Create(ExpandScale, DROPDOWN_EXPAND_TWEEN, { Scale = 1 })
+            ExpandFadeTween = SafeTweenCreate(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, { BackgroundTransparency = 0.5 })
+            ExpandScaleTween = SafeTweenCreate(ExpandScale, DROPDOWN_EXPAND_TWEEN, { Scale = 1 })
             ExpandFadeTween:Play()
             ExpandScaleTween:Play()
         end
@@ -12603,8 +12629,8 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             StopExpandTweens()
 
-            ExpandFadeTween = TweenService:Create(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, { BackgroundTransparency = 1 })
-            ExpandScaleTween = TweenService:Create(ExpandScale, DROPDOWN_EXPAND_TWEEN, { Scale = 0.96 })
+            ExpandFadeTween = SafeTweenCreate(ExpandOverlay, DROPDOWN_EXPAND_TWEEN, { BackgroundTransparency = 1 })
+            ExpandScaleTween = SafeTweenCreate(ExpandScale, DROPDOWN_EXPAND_TWEEN, { Scale = 0.96 })
 
             ExpandFadeTween.Completed:Once(function(State)
                 if State == Enum.PlaybackState.Cancelled or Expanded then
@@ -13893,7 +13919,7 @@ function Library:UpdateNotificationPositions(Snap: boolean?)
             Data.PositionInitialized = true
 
         elseif FakeBackground.Position ~= Target then
-            TweenService:Create(FakeBackground, Library.NotifyTweenInfo, {
+            SafeTweenCreate(FakeBackground, Library.NotifyTweenInfo, {
                 Position = Target,
             }):Play()
         end
@@ -14029,12 +14055,12 @@ function Library:Notify(...)
         })
 
         CloseButton.MouseEnter:Connect(function()
-            TweenService:Create(CloseButton, Library.TweenInfo, {
+            SafeTweenCreate(CloseButton, Library.TweenInfo, {
                 ImageTransparency = 0,
             }):Play()
         end)
         CloseButton.MouseLeave:Connect(function()
-            TweenService:Create(CloseButton, Library.TweenInfo, {
+            SafeTweenCreate(CloseButton, Library.TweenInfo, {
                 ImageTransparency = 0.5,
             }):Play()
         end)
@@ -14291,7 +14317,7 @@ function Library:Notify(...)
     Data:Resize()
 
     FakeBackground.Visible = true
-    TweenService:Create(Holder, Library.NotifyTweenInfo, {
+    SafeTweenCreate(Holder, Library.NotifyTweenInfo, {
         Position = UDim2.fromOffset(0, 0),
     }):Play()
 
@@ -14384,7 +14410,7 @@ function Library:CreatePopup(Info, Time)
             Parent = PopupGui,
         })
         PopupParent = Overlay
-        TweenService:Create(Overlay, Library.TweenInfo, {
+        SafeTweenCreate(Overlay, Library.TweenInfo, {
             BackgroundTransparency = math.clamp(tonumber(Info.OverlayTransparency) or 0.74, 0, 1),
         }):Play()
     end
@@ -14412,7 +14438,7 @@ function Library:CreatePopup(Info, Time)
         Scale = 0.96,
         Parent = Card,
     })
-    TweenService:Create(CardScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    SafeTweenCreate(CardScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Scale = 1,
     }):Play()
 
@@ -14589,10 +14615,10 @@ function Library:CreatePopup(Info, Time)
             local HoverColor = Library:GetBetterColor(BaseColor, Variant == "Ghost" and 5 or 8)
 
             Library:GiveSignal(Button.MouseEnter:Connect(function()
-                TweenService:Create(Button, Library.TweenInfo, { BackgroundColor3 = HoverColor }):Play()
+                SafeTweenCreate(Button, Library.TweenInfo, { BackgroundColor3 = HoverColor }):Play()
             end))
             Library:GiveSignal(Button.MouseLeave:Connect(function()
-                TweenService:Create(Button, Library.TweenInfo, { BackgroundColor3 = BaseColor }):Play()
+                SafeTweenCreate(Button, Library.TweenInfo, { BackgroundColor3 = BaseColor }):Play()
             end))
             Library:GiveSignal(Button.MouseButton1Click:Connect(function()
                 Library:SafeCallback(Action.Callback or Action.Func, Popup)
@@ -14641,14 +14667,14 @@ function Library:CreatePopup(Info, Time)
         Popup.Destroyed = true
         Library.Popups[PopupId] = nil
 
-        TweenService:Create(CardScale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        SafeTweenCreate(CardScale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
             Scale = 0.97,
         }):Play()
-        TweenService:Create(Card, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        SafeTweenCreate(Card, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
             BackgroundTransparency = 1,
         }):Play()
         if Overlay then
-            TweenService:Create(Overlay, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            SafeTweenCreate(Overlay, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 BackgroundTransparency = 1,
             }):Play()
         end
@@ -14678,7 +14704,7 @@ function Library:CreatePopup(Info, Time)
     end
 
     if TimerFill then
-        TweenService:Create(TimerFill, TweenInfo.new(AutoDismissTime, Enum.EasingStyle.Linear), {
+        SafeTweenCreate(TimerFill, TweenInfo.new(AutoDismissTime, Enum.EasingStyle.Linear), {
             Size = UDim2.fromScale(0, 1),
         }):Play()
         task.delay(AutoDismissTime, function()
@@ -14899,15 +14925,15 @@ function Library:_BuildNotificationHistory()
         })
     end
     CloseButton.MouseEnter:Connect(function()
-        TweenService:Create(CloseButton, Library.TweenInfo, { TextTransparency = 0 }):Play()
+        SafeTweenCreate(CloseButton, Library.TweenInfo, { TextTransparency = 0 }):Play()
         if CloseImage then
-            TweenService:Create(CloseImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+            SafeTweenCreate(CloseImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
         end
     end)
     CloseButton.MouseLeave:Connect(function()
-        TweenService:Create(CloseButton, Library.TweenInfo, { TextTransparency = 0.35 }):Play()
+        SafeTweenCreate(CloseButton, Library.TweenInfo, { TextTransparency = 0.35 }):Play()
         if CloseImage then
-            TweenService:Create(CloseImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
+            SafeTweenCreate(CloseImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
         end
     end)
     CloseButton.MouseButton1Click:Connect(function()
@@ -15115,12 +15141,12 @@ function Library:RefreshNotificationHistory()
         Library:AddTooltip("Click to copy", nil, Card)
         Card.MouseEnter:Connect(function()
             if CopyImage then
-                TweenService:Create(CopyImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
+                SafeTweenCreate(CopyImage, Library.TweenInfo, { ImageTransparency = 0.1 }):Play()
             end
         end)
         Card.MouseLeave:Connect(function()
             if CopyImage then
-                TweenService:Create(CopyImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
+                SafeTweenCreate(CopyImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
             end
         end)
         Card.MouseButton1Click:Connect(function()
@@ -15151,7 +15177,7 @@ function Library:RefreshNotificationHistory()
                 CopyImage.ImageTransparency = 0
 
                 CopyImage.Size = UDim2.fromOffset(9, 9)
-                TweenService:Create(CopyImage, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                SafeTweenCreate(CopyImage, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                     Size = UDim2.fromOffset(13, 13),
                 }):Play()
             end
@@ -15160,10 +15186,10 @@ function Library:RefreshNotificationHistory()
             CopiedLabel.TextColor3 = Ok and SuccessColor or (Library.NotificationTypeColors.Error or Color3.fromRGB(255, 76, 76))
             CopiedLabel.TextTransparency = 0
             CopiedLabel.Position = UDim2.new(1, -24, 0, 9)
-            TweenService:Create(CopiedLabel, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            SafeTweenCreate(CopiedLabel, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                 Position = UDim2.new(1, -24, 0, 5),
             }):Play()
-            TweenService:Create(CopiedLabel, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            SafeTweenCreate(CopiedLabel, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 TextTransparency = 1,
             }):Play()
 
@@ -15175,7 +15201,7 @@ function Library:RefreshNotificationHistory()
                         CopyImage.ImageRectSize = ClipboardIcon.ImageRectSize
                     end
                     CopyImage.ImageColor3 = Library.Scheme.FontColor
-                    TweenService:Create(CopyImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
+                    SafeTweenCreate(CopyImage, Library.TweenInfo, { ImageTransparency = 0.55 }):Play()
                 end
             end)
         end)
@@ -15269,14 +15295,14 @@ function Library:SetNotificationHistoryVisible(Visible: boolean)
         Frame.GroupTransparency = 1
         Frame.Visible = true
 
-        TweenService:Create(Frame, NotifyHistoryOpenTween, {
+        SafeTweenCreate(Frame, NotifyHistoryOpenTween, {
             Position = RestPos,
             GroupTransparency = 0,
         }):Play()
     else
         local RestPos = Frame.Position
 
-        TweenService:Create(Frame, NotifyHistoryCloseTween, {
+        SafeTweenCreate(Frame, NotifyHistoryCloseTween, {
             Position = RestPos + NOTIFY_HISTORY_SLIDE,
             GroupTransparency = 1,
         }):Play()
@@ -15463,12 +15489,12 @@ function Library:CreateWindow(WindowInfo)
         TabSelectBoxTab = nil
 
         if TabSelectBox then
-            TweenService:Create(TabSelectBox, Library.TweenInfo, {
+            SafeTweenCreate(TabSelectBox, Library.TweenInfo, {
                 BackgroundTransparency = 1,
             }):Play()
         end
         if TabSelectBoxStroke then
-            TweenService:Create(TabSelectBoxStroke, Library.TweenInfo, {
+            SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
                 Transparency = 1,
             }):Play()
         end
@@ -15569,10 +15595,10 @@ function Library:CreateWindow(WindowInfo)
         TabSelectBoxGlow.Parent = Holder
         TabSelectBoxGlow.Visible = true
 
-        TweenService:Create(TabSelectBox, Library.TweenInfo, {
+        SafeTweenCreate(TabSelectBox, Library.TweenInfo, {
             BackgroundTransparency = 0,
         }):Play()
-        TweenService:Create(TabSelectBoxStroke, Library.TweenInfo, {
+        SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
             Transparency = 0,
         }):Play()
 
@@ -15591,7 +15617,7 @@ function Library:CreateWindow(WindowInfo)
                 TabSelectBoxGlow.Position = TabSelectBox.Position
                 TabSelectBoxGlow.Size = Size
             end
-            TabSelectBoxTween = TweenService:Create(
+            TabSelectBoxTween = SafeTweenCreate(
                 TabSelectBox,
                 TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
                 {
@@ -15600,7 +15626,7 @@ function Library:CreateWindow(WindowInfo)
                 }
             )
             if TabSelectBoxGlow then
-                TweenService:Create(
+                SafeTweenCreate(
                     TabSelectBoxGlow,
                     TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
                     {
@@ -16049,14 +16075,14 @@ function Library:CreateWindow(WindowInfo)
 
         Library:GiveSignal(SearchBox.Focused:Connect(function()
             Library.Registry[SearchBoxStroke].Color = "AccentColor"
-            TweenService:Create(SearchBoxStroke, Library.TweenInfo, {
+            SafeTweenCreate(SearchBoxStroke, Library.TweenInfo, {
                 Color = Library.Scheme.AccentColor,
             }):Play()
         end))
 
         Library:GiveSignal(SearchBox.FocusLost:Connect(function()
             Library.Registry[SearchBoxStroke].Color = "OutlineColor"
-            TweenService:Create(SearchBoxStroke, Library.TweenInfo, {
+            SafeTweenCreate(SearchBoxStroke, Library.TweenInfo, {
                 Color = Library.Scheme.OutlineColor,
             }):Play()
         end))
@@ -16117,15 +16143,15 @@ function Library:CreateWindow(WindowInfo)
 
             Library:AddTooltip("Minimize", nil, MinimizeButton)
             MinimizeButton.MouseEnter:Connect(function()
-                TweenService:Create(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
                 if MinimizeImage then
-                    TweenService:Create(MinimizeImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+                    SafeTweenCreate(MinimizeImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
                 end
             end)
             MinimizeButton.MouseLeave:Connect(function()
-                TweenService:Create(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
                 if MinimizeImage then
-                    TweenService:Create(MinimizeImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
+                    SafeTweenCreate(MinimizeImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
                 end
             end)
             MinimizeButton.MouseButton1Click:Connect(function()
@@ -16287,15 +16313,15 @@ function Library:CreateWindow(WindowInfo)
                     })
                 end
                 Btn.MouseEnter:Connect(function()
-                    TweenService:Create(Btn, Library.TweenInfo, { TextTransparency = 0 }):Play()
+                    SafeTweenCreate(Btn, Library.TweenInfo, { TextTransparency = 0 }):Play()
                     if Img then
-                        TweenService:Create(Img, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+                        SafeTweenCreate(Img, Library.TweenInfo, { ImageTransparency = 0 }):Play()
                     end
                 end)
                 Btn.MouseLeave:Connect(function()
-                    TweenService:Create(Btn, Library.TweenInfo, { TextTransparency = 0.35 }):Play()
+                    SafeTweenCreate(Btn, Library.TweenInfo, { TextTransparency = 0.35 }):Play()
                     if Img then
-                        TweenService:Create(Img, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
+                        SafeTweenCreate(Img, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
                     end
                 end)
                 if TooltipText then
@@ -16512,9 +16538,9 @@ function Library:CreateWindow(WindowInfo)
 
             Library:AddTooltip("Notification History", nil, BellButton)
             BellButton.MouseEnter:Connect(function()
-                TweenService:Create(BellButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(BellButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
                 if BellImage then
-                    TweenService:Create(BellImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
+                    SafeTweenCreate(BellImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
                 end
                 --// Corvus-style: slightly enlarge + wiggle (sway left/right)
                 local Target = BellImage or BellButton
@@ -16522,7 +16548,7 @@ function Library:CreateWindow(WindowInfo)
                 if not Scale then
                     Scale = New("UIScale", { Scale = 1, Parent = Target })
                 end
-                TweenService:Create(Scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.2 }):Play()
+                SafeTweenCreate(Scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.2 }):Play()
 
                 --// Wiggle: -16, 13, -9, 5, 0 (Corvus pattern)
                 task.spawn(function()
@@ -16530,7 +16556,7 @@ function Library:CreateWindow(WindowInfo)
                         if not (Target and Target.Parent) then
                             return
                         end
-                        TweenService:Create(Target, TweenInfo.new(0.07, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                        SafeTweenCreate(Target, TweenInfo.new(0.07, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                             Rotation = Angle,
                         }):Play()
                         task.wait(0.07)
@@ -16538,14 +16564,14 @@ function Library:CreateWindow(WindowInfo)
                 end)
             end)
             BellButton.MouseLeave:Connect(function()
-                TweenService:Create(BellButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(BellButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
                 if BellImage then
-                    TweenService:Create(BellImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
+                    SafeTweenCreate(BellImage, Library.TweenInfo, { ImageTransparency = 0.35 }):Play()
                 end
                 local Target = BellImage or BellButton
                 local Scale = Target:FindFirstChildOfClass("UIScale")
                 if Scale then
-                    TweenService:Create(Scale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+                    SafeTweenCreate(Scale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
                 end
                 Target.Rotation = 0
             end)
@@ -16702,10 +16728,10 @@ function Library:CreateWindow(WindowInfo)
 
             CopyButton.MouseButton1Click:Connect(Copy)
             CopyButton.MouseEnter:Connect(function()
-                TweenService:Create(CopyButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(CopyButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
             end)
             CopyButton.MouseLeave:Connect(function()
-                TweenService:Create(CopyButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+                SafeTweenCreate(CopyButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
             end)
 
             --// The text itself is a copy target too. This listens on the label instead
@@ -16804,7 +16830,7 @@ function Library:CreateWindow(WindowInfo)
             ImageTransparency = 0.5,
             Position = UDim2.fromOffset(2, 2),
             Size = UDim2.new(1, -4, 1, -4),
-            Parent = ResizeButton,
+            Parent = ResizeButton or BottomBar,
         })
         if ResizeIcon then
             Library:ApplyLucideIcon(WindowResizeIcon, ResizeIcon)
@@ -17179,12 +17205,12 @@ function Library:CreateWindow(WindowInfo)
         end
 
         LogoutButton.MouseEnter:Connect(function()
-            TweenService:Create(LogoutButton, Library.TweenInfo, {
+            SafeTweenCreate(LogoutButton, Library.TweenInfo, {
                 BackgroundColor3 = Library.Scheme.AccentColor,
             }):Play()
         end)
         LogoutButton.MouseLeave:Connect(function()
-            TweenService:Create(LogoutButton, Library.TweenInfo, {
+            SafeTweenCreate(LogoutButton, Library.TweenInfo, {
                 BackgroundColor3 = Library.Scheme.MainColor,
             }):Play()
         end)
@@ -18055,7 +18081,9 @@ function Library:CreateWindow(WindowInfo)
         Library.CornerRadius = Radius
         WindowInfo.CornerRadius = Radius
 
-        ResizeButton.Position = UDim2.new(1, -Radius / 4, 0, 0)
+        if ResizeButton then
+            ResizeButton.Position = UDim2.new(1, -Radius / 4, 0, 0)
+        end
         BottomBackground.Size = UDim2.new(1, 0, 0, 20 + Radius)
 
         for _, Menu in Library.ContextMenus do
@@ -18492,6 +18520,7 @@ function Library:CreateWindow(WindowInfo)
                 Padding = ButtonPadding,
                 Icon = TabIcon,
                 Indicator = TabIndicator,
+                Button = TabButton,
             })
 
             --// Tab Container \\--
@@ -18998,7 +19027,7 @@ function Library:CreateWindow(WindowInfo)
 
                 TabboxUnderline.Visible = true
                 if Animate and Library.Animations and Library.Animations.SubTabUnderline ~= false then
-                    TweenService:Create(TabboxUnderline, SUBTAB_SLIDE_TWEEN, {
+                    SafeTweenCreate(TabboxUnderline, SUBTAB_SLIDE_TWEEN, {
                         Position = GoalPos,
                         Size = GoalSize,
                     }):Play()
@@ -19534,7 +19563,7 @@ function Library:CreateWindow(WindowInfo)
 
                 if Library.Animations and Library.Animations.Groupbox then
                     local TweenInfo = Library.GroupboxTweenInfo or TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                    local Tween = TweenService:Create(GroupboxHolder, TweenInfo, { Size = TargetSize })
+                    local Tween = SafeTweenCreate(GroupboxHolder, TweenInfo, { Size = TargetSize })
                     ResizeTween = Tween
 
                     local Connection; Connection = Library:GiveSignal(Tween.Completed:Once(function()
@@ -19575,7 +19604,7 @@ function Library:CreateWindow(WindowInfo)
                 GroupboxContainer.Visible = not Collapsed
                 if Library.Animations and Library.Animations.Groupbox then
                     local TweenInfo = Library.GroupboxTweenInfo or TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    local Tween = TweenService:Create(GroupboxCollapseArrow, TweenInfo, { Rotation = TargetRotation })
+                    local Tween = SafeTweenCreate(GroupboxCollapseArrow, TweenInfo, { Rotation = TargetRotation })
                     CollapseArrowTween = Tween
 
                     local Connection; Connection = Library:GiveSignal(Tween.Completed:Connect(function()
@@ -19751,7 +19780,7 @@ function Library:CreateWindow(WindowInfo)
             end
 
             if Animated then
-                SidebarListTween = TweenService:Create(SidebarList, Library.GroupboxTweenInfo, {
+                SidebarListTween = SafeTweenCreate(SidebarList, Library.GroupboxTweenInfo, {
                     Size = UDim2.new(1, 0, 0, Target),
                 })
 
@@ -19777,7 +19806,7 @@ function Library:CreateWindow(WindowInfo)
                 local Rotation = Open and 180 or 0
 
                 if Animated then
-                    TweenService:Create(TabChevron, Library.RotatingChevronTweenInfo, {
+                    SafeTweenCreate(TabChevron, Library.RotatingChevronTweenInfo, {
                         Rotation = Rotation,
                     }):Play()
                 else
@@ -19874,18 +19903,18 @@ function Library:CreateWindow(WindowInfo)
                 Library:AddToRegistry(EntryLabel, { TextColor3 = Handle.Active and "AccentColor" or "FontColor" })
                 EntryLabel.TextColor3 = Handle.Active and Library.Scheme.AccentColor or Library.Scheme.FontColor
 
-                TweenService:Create(Entry, Library.TweenInfo, {
+                SafeTweenCreate(Entry, Library.TweenInfo, {
                     BackgroundTransparency = Handle.Active and 0.5 or 1,
                 }):Play()
-                TweenService:Create(Marker, Library.TweenInfo, {
+                SafeTweenCreate(Marker, Library.TweenInfo, {
                     BackgroundTransparency = Handle.Active and 0 or 1,
                 }):Play()
-                TweenService:Create(EntryLabel, Library.TweenInfo, {
+                SafeTweenCreate(EntryLabel, Library.TweenInfo, {
                     TextTransparency = Handle.Active and 0 or SUBTAB_IDLE_TRANSPARENCY,
                 }):Play()
 
                 if EntryIcon then
-                    TweenService:Create(EntryIcon, Library.TweenInfo, {
+                    SafeTweenCreate(EntryIcon, Library.TweenInfo, {
                         ImageTransparency = Handle.Active and 0 or SUBTAB_IDLE_TRANSPARENCY,
                     }):Play()
                 end
@@ -19932,14 +19961,14 @@ function Library:CreateWindow(WindowInfo)
                     return
                 end
 
-                TweenService:Create(EntryLabel, Library.TweenInfo, { TextTransparency = 0.2 }):Play()
+                SafeTweenCreate(EntryLabel, Library.TweenInfo, { TextTransparency = 0.2 }):Play()
             end)
             Entry.MouseLeave:Connect(function()
                 if Handle.Active then
                     return
                 end
 
-                TweenService:Create(EntryLabel, Library.TweenInfo, {
+                SafeTweenCreate(EntryLabel, Library.TweenInfo, {
                     TextTransparency = SUBTAB_IDLE_TRANSPARENCY,
                 }):Play()
             end)
@@ -20159,7 +20188,7 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
-            SubTabUnderlineTween = TweenService:Create(SubTabUnderline, SUBTAB_SLIDE_TWEEN, Target)
+            SubTabUnderlineTween = SafeTweenCreate(SubTabUnderline, SUBTAB_SLIDE_TWEEN, Target)
             SubTabUnderlineTween:Play()
         end
 
@@ -20425,7 +20454,7 @@ function Library:CreateWindow(WindowInfo)
             function SubTab:Hover(Hovering)
                 --// The squash applies to the active sub tab too: hovering the chip you
                 --// are already on should still respond
-                TweenService:Create(ButtonScale, SUBTAB_HOVER_TWEEN, {
+                SafeTweenCreate(ButtonScale, SUBTAB_HOVER_TWEEN, {
                     Scale = Hovering and SUBTAB_HOVER_SCALE or 1,
                 }):Play()
 
@@ -20433,22 +20462,22 @@ function Library:CreateWindow(WindowInfo)
                     return
                 end
 
-                TweenService:Create(Chip, Library.TweenInfo, {
+                SafeTweenCreate(Chip, Library.TweenInfo, {
                     BackgroundTransparency = Hovering and 0.45 or 1,
                 }):Play()
-                TweenService:Create(ButtonStroke, Library.TweenInfo, {
+                SafeTweenCreate(ButtonStroke, Library.TweenInfo, {
                     Transparency = Hovering and 0.7 or 1,
                 }):Play()
                 for Index, Shadow in ButtonShadows do
-                    TweenService:Create(Shadow, Library.TweenInfo, {
+                    SafeTweenCreate(Shadow, Library.TweenInfo, {
                         BackgroundTransparency = Hovering and SUBTAB_SHADOW_TRANSPARENCY[Index] + 0.2 or 1,
                     }):Play()
                 end
-                TweenService:Create(ButtonLabel, Library.TweenInfo, {
+                SafeTweenCreate(ButtonLabel, Library.TweenInfo, {
                     TextTransparency = Hovering and 0.1 or SUBTAB_IDLE_TRANSPARENCY,
                 }):Play()
                 if ButtonIcon then
-                    TweenService:Create(ButtonIcon, Library.TweenInfo, {
+                    SafeTweenCreate(ButtonIcon, Library.TweenInfo, {
                         ImageTransparency = Hovering and 0.1 or SUBTAB_IDLE_TRANSPARENCY,
                     }):Play()
                 end
@@ -20466,22 +20495,22 @@ function Library:CreateWindow(WindowInfo)
                 Library:AddToRegistry(ButtonLabel, { TextColor3 = "AccentColor" })
                 ButtonLabel.TextColor3 = Library.Scheme.AccentColor
 
-                TweenService:Create(Chip, Library.TweenInfo, {
+                SafeTweenCreate(Chip, Library.TweenInfo, {
                     BackgroundTransparency = 0,
                 }):Play()
-                TweenService:Create(ButtonStroke, Library.TweenInfo, {
+                SafeTweenCreate(ButtonStroke, Library.TweenInfo, {
                     Transparency = 0.25,
                 }):Play()
                 for Index, Shadow in ButtonShadows do
-                    TweenService:Create(Shadow, Library.TweenInfo, {
+                    SafeTweenCreate(Shadow, Library.TweenInfo, {
                         BackgroundTransparency = SUBTAB_SHADOW_TRANSPARENCY[Index],
                     }):Play()
                 end
-                TweenService:Create(ButtonLabel, Library.TweenInfo, {
+                SafeTweenCreate(ButtonLabel, Library.TweenInfo, {
                     TextTransparency = 0,
                 }):Play()
                 if ButtonIcon then
-                    TweenService:Create(ButtonIcon, Library.TweenInfo, {
+                    SafeTweenCreate(ButtonIcon, Library.TweenInfo, {
                         ImageTransparency = 0,
                     }):Play()
                 end
@@ -20505,22 +20534,22 @@ function Library:CreateWindow(WindowInfo)
                 Library:AddToRegistry(ButtonLabel, { TextColor3 = "FontColor" })
                 ButtonLabel.TextColor3 = Library.Scheme.FontColor
 
-                TweenService:Create(Chip, Library.TweenInfo, {
+                SafeTweenCreate(Chip, Library.TweenInfo, {
                     BackgroundTransparency = 1,
                 }):Play()
-                TweenService:Create(ButtonStroke, Library.TweenInfo, {
+                SafeTweenCreate(ButtonStroke, Library.TweenInfo, {
                     Transparency = 1,
                 }):Play()
                 for _, Shadow in ButtonShadows do
-                    TweenService:Create(Shadow, Library.TweenInfo, {
+                    SafeTweenCreate(Shadow, Library.TweenInfo, {
                         BackgroundTransparency = 1,
                     }):Play()
                 end
-                TweenService:Create(ButtonLabel, Library.TweenInfo, {
+                SafeTweenCreate(ButtonLabel, Library.TweenInfo, {
                     TextTransparency = SUBTAB_IDLE_TRANSPARENCY,
                 }):Play()
                 if ButtonIcon then
-                    TweenService:Create(ButtonIcon, Library.TweenInfo, {
+                    SafeTweenCreate(ButtonIcon, Library.TweenInfo, {
                         ImageTransparency = SUBTAB_IDLE_TRANSPARENCY,
                     }):Play()
                 end
@@ -20642,11 +20671,11 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = Hovering and 0.25 or 0.5,
             }):Play()
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = Hovering and 0.25 or 0.5,
                 }):Play()
             end
@@ -20661,19 +20690,19 @@ function Library:CreateWindow(WindowInfo)
                 Library.ActiveTab:Hide()
             end
 
-            TweenService:Create(TabButton, Library.TweenInfo, {
+            SafeTweenCreate(TabButton, Library.TweenInfo, {
                 BackgroundTransparency = 0,
             }):Play()
             if TabIndicator then
-                TweenService:Create(TabIndicator, Library.TweenInfo, {
+                SafeTweenCreate(TabIndicator, Library.TweenInfo, {
                     BackgroundTransparency = 0,
                 }):Play()
             end
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0,
             }):Play()
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = 0,
                 }):Play()
                 if Tab._IconSpinTween then
@@ -20707,22 +20736,22 @@ function Library:CreateWindow(WindowInfo)
         end
 
         function Tab:Hide()
-            TweenService:Create(TabButton, Library.TweenInfo, {
+            SafeTweenCreate(TabButton, Library.TweenInfo, {
                 BackgroundTransparency = 1,
             }):Play()
 
             if TabIndicator then
-                TweenService:Create(TabIndicator, Library.TweenInfo, {
+                SafeTweenCreate(TabIndicator, Library.TweenInfo, {
                     BackgroundTransparency = 1,
                 }):Play()
             end
 
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0.5,
             }):Play()
 
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = 0.5,
                 }):Play()
                 if Tab._IconSpinTween then
@@ -20978,6 +21007,7 @@ function Library:CreateWindow(WindowInfo)
                 Padding = ButtonPadding,
                 Icon = TabIcon,
                 Indicator = TabIndicator,
+                Button = TabButton,
             })
 
             --// Tab Container \\--
@@ -21057,14 +21087,14 @@ function Library:CreateWindow(WindowInfo)
 
             Box.Focused:Connect(function()
                 Library.Registry[BoxStroke].Color = "AccentColor"
-                TweenService:Create(BoxStroke, Library.TweenInfo, {
+                SafeTweenCreate(BoxStroke, Library.TweenInfo, {
                     Color = Library.Scheme.AccentColor,
                 }):Play()
             end)
 
             Box.FocusLost:Connect(function()
                 Library.Registry[BoxStroke].Color = "OutlineColor"
-                TweenService:Create(BoxStroke, Library.TweenInfo, {
+                SafeTweenCreate(BoxStroke, Library.TweenInfo, {
                     Color = Library.Scheme.OutlineColor,
                 }):Play()
             end)
@@ -21092,13 +21122,13 @@ function Library:CreateWindow(WindowInfo)
             )
 
             Button.MouseEnter:Connect(function()
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0,
                 }):Play()
             end)
 
             Button.MouseLeave:Connect(function()
-                TweenService:Create(Button, Library.TweenInfo, {
+                SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0.4,
                 }):Play()
             end)
@@ -21165,11 +21195,11 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = Hovering and 0.25 or 0.5,
             }):Play()
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = Hovering and 0.25 or 0.5,
                 }):Play()
             end
@@ -21184,22 +21214,22 @@ function Library:CreateWindow(WindowInfo)
                 Library.ActiveTab:Hide()
             end
 
-            TweenService:Create(TabButton, Library.TweenInfo, {
+            SafeTweenCreate(TabButton, Library.TweenInfo, {
                 BackgroundTransparency = 0,
             }):Play()
 
             if TabIndicator then
-                TweenService:Create(TabIndicator, Library.TweenInfo, {
+                SafeTweenCreate(TabIndicator, Library.TweenInfo, {
                     BackgroundTransparency = 0,
                 }):Play()
             end
 
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0,
             }):Play()
 
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = 0,
                 }):Play()
                 if Tab._IconSpinTween then
@@ -21234,22 +21264,22 @@ function Library:CreateWindow(WindowInfo)
         end
 
         function Tab:Hide()
-            TweenService:Create(TabButton, Library.TweenInfo, {
+            SafeTweenCreate(TabButton, Library.TweenInfo, {
                 BackgroundTransparency = 1,
             }):Play()
 
             if TabIndicator then
-                TweenService:Create(TabIndicator, Library.TweenInfo, {
+                SafeTweenCreate(TabIndicator, Library.TweenInfo, {
                     BackgroundTransparency = 1,
                 }):Play()
             end
 
-            TweenService:Create(TabLabel, Library.TweenInfo, {
+            SafeTweenCreate(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0.5,
             }):Play()
 
             if TabIcon then
-                TweenService:Create(TabIcon, Library.TweenInfo, {
+                SafeTweenCreate(TabIcon, Library.TweenInfo, {
                     ImageTransparency = 0.5,
                 }):Play()
                 if Tab._IconSpinTween then
@@ -21339,7 +21369,7 @@ function Library:CreateWindow(WindowInfo)
             Visible = true,
             Parent = MainFrame,
         })
-        TweenService:Create(DialogOverlay, Library.TweenInfo, {
+        SafeTweenCreate(DialogOverlay, Library.TweenInfo, {
             BackgroundTransparency = 0.5,
         }):Play()
 
@@ -21374,7 +21404,7 @@ function Library:CreateWindow(WindowInfo)
             Scale = 0.95,
             Parent = DialogFrame,
         })
-        TweenService:Create(DialogScale, Library.TweenInfo, {
+        SafeTweenCreate(DialogScale, Library.TweenInfo, {
             Scale = 1
         }):Play()
         local _InnerPadding = New("UIPadding", {
@@ -21590,8 +21620,8 @@ function Library:CreateWindow(WindowInfo)
             end
             table.clear(Dialog.Elements)
 
-            local CloseTween = TweenService:Create(DialogScale, Library.TweenInfo, { Scale = 0.95 })
-            TweenService:Create(DialogOverlay, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+            local CloseTween = SafeTweenCreate(DialogScale, Library.TweenInfo, { Scale = 0.95 })
+            SafeTweenCreate(DialogOverlay, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
             CloseTween:Play()
 
             task.delay(Library.TweenInfo.Time, function()
@@ -21729,11 +21759,11 @@ function Library:CreateWindow(WindowInfo)
                 SetDisabled = function(self, Disabled)
                     IsActive = not Disabled
                     if Disabled then
-                        TweenService:Create(TextBtn, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
-                        TweenService:Create(BtnLabel, Library.TweenInfo, { TextTransparency = 0.5 }):Play()
+                        SafeTweenCreate(TextBtn, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
+                        SafeTweenCreate(BtnLabel, Library.TweenInfo, { TextTransparency = 0.5 }):Play()
                     else
-                        TweenService:Create(TextBtn, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
-                        TweenService:Create(BtnLabel, Library.TweenInfo, { TextTransparency = 0 }):Play()
+                        SafeTweenCreate(TextBtn, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                        SafeTweenCreate(BtnLabel, Library.TweenInfo, { TextTransparency = 0 }):Play()
                     end
                 end
             }
@@ -21743,13 +21773,13 @@ function Library:CreateWindow(WindowInfo)
 
             TextBtn.MouseEnter:Connect(function()
                 if not IsActive then return end
-                TweenService:Create(TextBtn, Library.TweenInfo, {
+                SafeTweenCreate(TextBtn, Library.TweenInfo, {
                     BackgroundColor3 = HoverColor
                 }):Play()
             end)
             TextBtn.MouseLeave:Connect(function()
                 if not IsActive then return end
-                TweenService:Create(TextBtn, Library.TweenInfo, {
+                SafeTweenCreate(TextBtn, Library.TweenInfo, {
                     BackgroundColor3 = ActiveColor
                 }):Play()
             end)
@@ -21765,14 +21795,14 @@ function Library:CreateWindow(WindowInfo)
             end)
 
             if WaitTime > 0 then
-                TweenService:Create(ProgressBar, TweenInfo.new(WaitTime, Enum.EasingStyle.Linear), {
+                SafeTweenCreate(ProgressBar, TweenInfo.new(WaitTime, Enum.EasingStyle.Linear), {
                     Size = UDim2.new(1, 0, 0, 2)
                 }):Play()
 
                 task.delay(WaitTime, function()
                     ButtonWrap:SetDisabled(false)
                     if ProgressBar then
-                        TweenService:Create(ProgressBar, Library.TweenInfo, {
+                        SafeTweenCreate(ProgressBar, Library.TweenInfo, {
                             BackgroundTransparency = 1
                         }):Play()
                     end
@@ -21814,7 +21844,7 @@ function Library:CreateWindow(WindowInfo)
             end
 
             if Cache[Prop] ~= nil and Cache[Prop] ~= 1 then
-                TweenService:Create(Desc, Library.WindowAnimationInfo, {
+                SafeTweenCreate(Desc, Library.WindowAnimationInfo, {
                     [Prop] = Library.Toggled and Cache[Prop] or 1,
                 }):Play()
             end
@@ -21943,7 +21973,7 @@ function Library:CreateWindow(WindowInfo)
             Parent = DividerLine,
         })
         SidebarGrabber.MouseEnter:Connect(function()
-            TweenService:Create(DividerLine, Library.TweenInfo, {
+            SafeTweenCreate(DividerLine, Library.TweenInfo, {
                 BackgroundColor3 = Library:GetLighterColor(Library.Scheme.OutlineColor),
             }):Play()
         end)
@@ -21951,7 +21981,7 @@ function Library:CreateWindow(WindowInfo)
             if Dragging then
                 return
             end
-            TweenService:Create(DividerLine, Library.TweenInfo, {
+            SafeTweenCreate(DividerLine, Library.TweenInfo, {
                 BackgroundColor3 = Library.Scheme.OutlineColor,
             }):Play()
         end)
@@ -21973,7 +22003,7 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 Library.CantDragForced = false
-                TweenService:Create(DividerLine, Library.TweenInfo, {
+                SafeTweenCreate(DividerLine, Library.TweenInfo, {
                     BackgroundColor3 = Library.Scheme.OutlineColor,
                 }):Play()
 
@@ -22354,7 +22384,7 @@ function Library:CreateLoading(LoadingInfo)
 
     local RotationTween
     if LoadingInfo.LoadingIconTweenTime > 0 then
-        RotationTween = TweenService:Create(
+        RotationTween = SafeTweenCreate(
             LoadingIcon,
             TweenInfo.new(LoadingInfo.LoadingIconTweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
             { Rotation = 360 }
@@ -22547,9 +22577,9 @@ function Library:CreateLoading(LoadingInfo)
             SidebarDivider.Visible = true
         end
 
-        TweenService:Create(MainFrame, Library.TweenInfo, { Size = UDim2.fromOffset(FinalWidth, FinalHeight) }):Play()
-        TweenService:Create(SideBar, Library.TweenInfo, { Position = UDim2.fromOffset(Loading.ContentWidth, 0), Size = UDim2.new(0, ShowSidebar and Loading.SidebarWidth or 0, 1, 0) }):Play()
-        TweenService:Create(Container, Library.TweenInfo, { Size = UDim2.new(0, ShowSidebar and Loading.ContentWidth or Loading.WindowWidth, 1, 0) }):Play()
+        SafeTweenCreate(MainFrame, Library.TweenInfo, { Size = UDim2.fromOffset(FinalWidth, FinalHeight) }):Play()
+        SafeTweenCreate(SideBar, Library.TweenInfo, { Position = UDim2.fromOffset(Loading.ContentWidth, 0), Size = UDim2.new(0, ShowSidebar and Loading.SidebarWidth or 0, 1, 0) }):Play()
+        SafeTweenCreate(Container, Library.TweenInfo, { Size = UDim2.new(0, ShowSidebar and Loading.ContentWidth or Loading.WindowWidth, 1, 0) }):Play()
 
         if not ShowSidebar then
             task.delay(Library.TweenInfo.Time, function()
@@ -22607,7 +22637,7 @@ function Library:CreateLoading(LoadingInfo)
         end
 
         if TweenTime > 0 then
-            RotationTween = TweenService:Create(
+            RotationTween = SafeTweenCreate(
                 LoadingIcon,
                 TweenInfo.new(TweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
                 { Rotation = 360 }
@@ -22626,7 +22656,7 @@ function Library:CreateLoading(LoadingInfo)
         Loading.CurrentStep = math.clamp(Step, 0, Loading.TotalSteps)
 
         local Progress = Loading.CurrentStep / Loading.TotalSteps
-        TweenService:Create(SliderFill, Library.TweenInfo, { Size = UDim2.fromScale(Progress, 1) }):Play()
+        SafeTweenCreate(SliderFill, Library.TweenInfo, { Size = UDim2.fromScale(Progress, 1) }):Play()
 
         ProgressLabel.Text = string.format("%d/%d", Loading.CurrentStep, Loading.TotalSteps)
     end
@@ -22785,12 +22815,12 @@ function Library:CreateLoading(LoadingInfo)
             local HoverColor = Variant == "Ghost" and Library.Scheme.MainColor or Library:GetBetterColor(ActiveColor, 10)
 
             TextBtn.MouseEnter:Connect(function()
-                TweenService:Create(TextBtn, Library.TweenInfo, {
+                SafeTweenCreate(TextBtn, Library.TweenInfo, {
                     BackgroundColor3 = HoverColor
                 }):Play()
             end)
             TextBtn.MouseLeave:Connect(function()
-                TweenService:Create(TextBtn, Library.TweenInfo, {
+                SafeTweenCreate(TextBtn, Library.TweenInfo, {
                     BackgroundColor3 = ActiveColor
                 }):Play()
             end)
