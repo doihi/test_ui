@@ -1,6 +1,6 @@
 -- test-ui.lua: embedded library (based on doihi_Library.lua)
 -- splash screen and library-origin UIStroke are removed; the API is Library.*
--- Window tabs are laid out horizontally at the top.
+-- Window tabs are an icon-only bar at the bottom; title stays on top and content is in the middle.
 local Library = (function()
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
@@ -15335,7 +15335,7 @@ function Library:CreateWindow(WindowInfo)
     WindowInfo.SidebarCompactWidth = math.max(40 + TabButtonsStyle.Padding * 2, WindowInfo.SidebarCompactWidth)
     WindowInfo.SidebarCollapseThreshold = math.clamp(WindowInfo.SidebarCollapseThreshold, 0.1, 0.9)
     WindowInfo.CompactWidthActivation = math.max(40 + TabButtonsStyle.Padding * 2, WindowInfo.CompactWidthActivation)
-    --// [top-tabs] horizontal tab strip height
+    --// [bottom-tabs] horizontal tab strip height
     local TabStripHeight = 40 + TabButtonsStyle.Padding * 2
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
@@ -15442,12 +15442,12 @@ function Library:CreateWindow(WindowInfo)
     end
 
     local function GetTabSelectBoxRect(Icon)
-        --// [top-tabs] the highlight covers the whole tab button
+        --// [bottom-tabs] the highlight covers the whole tab button
         return UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0)
     end
 
     local function GetTabIndicatorLeft(Icon)
-        --// [top-tabs] indicators are centered, so there is no left offset
+        --// [bottom-tabs] indicators are centered, so there is no left offset
         return 0
     end
 
@@ -15581,7 +15581,7 @@ function Library:CreateWindow(WindowInfo)
                 TabSelectBoxGlow.Size = Size
             end
         else
-            --// [top-tabs] Y snaps immediately; only X slides between tabs
+            --// [bottom-tabs] Y snaps immediately; only X slides between tabs
             TabSelectBox.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset, Pos.Y.Scale, Pos.Y.Offset)
             TabSelectBox.Size = Size
             if TabSelectBoxGlow then
@@ -15677,7 +15677,7 @@ function Library:CreateWindow(WindowInfo)
 
         DividerLine = New("Frame", {
             BackgroundColor3 = "OutlineColor",
-            Position = UDim2.fromOffset(0, 49 + TabStripHeight),
+            Position = UDim2.new(0, 0, 1, -20 - TabStripHeight),
             Size = UDim2.new(1, 0, 0, 1),
             Parent = MainFrame,
             ZIndex = 2
@@ -16753,7 +16753,8 @@ function Library:CreateWindow(WindowInfo)
             ScrollingDirection = Enum.ScrollingDirection.X,
             BackgroundColor3 = "BackgroundColor",
             CanvasSize = UDim2.fromScale(0, 0),
-            Position = UDim2.fromOffset(0, 49),
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, -20),
             ScrollBarThickness = 0,
             Size = UDim2.new(1, 0, 0, TabStripHeight),
             Parent = MainFrame,
@@ -16779,8 +16780,8 @@ function Library:CreateWindow(WindowInfo)
             end,
             ClipsDescendants = true,
             Name = "Container",
-            Position = UDim2.fromOffset(0, 49 + TabStripHeight),
-            Size = UDim2.new(1, 0, 1, -70 - TabStripHeight),
+            Position = UDim2.fromOffset(0, 49),
+            Size = UDim2.new(1, 0, 1, -69 - TabStripHeight),
             Parent = MainFrame,
         })
         New("UIPadding", {
@@ -18078,7 +18079,7 @@ function Library:CreateWindow(WindowInfo)
     end
 
     local function ApplyCompact()
-        --// [top-tabs] the sidebar is a horizontal strip: compact mode is off
+        --// [bottom-tabs] the sidebar is a bottom icon strip: compact mode is off
         IsCompact = false
 
         WindowTitle.Visible = not IsCompact
@@ -18095,20 +18096,14 @@ function Library:CreateWindow(WindowInfo)
                 continue
             end
 
-            local IconSize = IsCompact and 22 or 18
-            local IconX = IsCompact and (40 - IconSize) * 0.5 or 11
-
-            Button.Label.Visible = not IsCompact
-            Button.Icon.AnchorPoint = Vector2.new(0, 0.5)
-            Button.Icon.Position = UDim2.new(0, IconX, 0.5, 0)
-            Button.Icon.Size = UDim2.fromOffset(IconSize, IconSize)
-
-            Button.Label.Position = UDim2.fromOffset(IconX + IconSize + 6, 0)
-            Button.Label.Size = UDim2.new(1, -(IconX + IconSize + 6), 1, 0)
-            Button.Padding.PaddingBottom = UDim.new(0, IsCompact and 6 or 11)
-            Button.Padding.PaddingLeft = UDim.new(0, IsCompact and 6 or 12)
-            Button.Padding.PaddingRight = UDim.new(0, IsCompact and 6 or 12)
-            Button.Padding.PaddingTop = UDim.new(0, IsCompact and 6 or 11)
+            Button.Label.Visible = not Button.Icon
+            Button.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+            Button.Icon.Position = UDim2.fromScale(0.5, 0.5)
+            Button.Icon.Size = UDim2.fromOffset(20, 20)
+            Button.Padding.PaddingBottom = UDim.new(0, 4)
+            Button.Padding.PaddingLeft = UDim.new(0, 4)
+            Button.Padding.PaddingRight = UDim.new(0, 4)
+            Button.Padding.PaddingTop = UDim.new(0, 4)
         end
 
         --// Keep bottom panels (user profile, avatar panel) in sync with compact mode
@@ -18250,17 +18245,16 @@ function Library:CreateWindow(WindowInfo)
     end
 
     function Window:GetSidebarWidth()
-        --// [top-tabs] this is the tab strip height
+        --// [bottom-tabs] this is the tab strip height
         return Tabs.Size.Y.Offset
     end
 
     function Window:SetSidebarWidth(Width)
         Width = math.clamp(Width, 40, 80)
         Tabs.Size = UDim2.new(1, 0, 0, Width)
-        DividerLine.Position = UDim2.fromOffset(0, 49 + Width)
+        DividerLine.Position = UDim2.new(0, 0, 1, -20 - Width)
         DividerLine.Size = UDim2.new(1, 0, 0, 1)
-        Container.Position = UDim2.fromOffset(0, 49 + Width)
-        Container.Size = UDim2.new(1, 0, 1, -70 - Width)
+        Container.Size = UDim2.new(1, 0, 1, -69 - Width)
         if WindowInfo.EnableCompacting then
             ApplyCompact()
         end
@@ -18367,7 +18361,7 @@ function Library:CreateWindow(WindowInfo)
             TabButton = New("TextButton", {
                 BackgroundColor3 = "MainColor",
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0, 132, 1, 0),
+                Size = UDim2.new(0, 56, 1, 0),
                 Text = "",
                 LayoutOrder = Order,
                 Parent = Tabs,
@@ -18400,35 +18394,33 @@ function Library:CreateWindow(WindowInfo)
                 Parent = TabButton,
             })
             ButtonPadding = New("UIPadding", {
-                PaddingBottom = UDim.new(0, IsCompact and 6 or 11),
-                PaddingLeft = UDim.new(0, IsCompact and 6 or 12),
-                PaddingRight = UDim.new(0, IsCompact and 6 or 12),
-                PaddingTop = UDim.new(0, IsCompact and 6 or 11),
+                PaddingBottom = UDim.new(0, 4),
+                PaddingLeft = UDim.new(0, 4),
+                PaddingRight = UDim.new(0, 4),
+                PaddingTop = UDim.new(0, 4),
                 Parent = ButtonHolder,
             })
-            local IconSize = IsCompact and 22 or 18
-            local IconX = IsCompact and (40 - IconSize) * 0.5 or 11
             TabLabel = New("TextLabel", {
                 BackgroundTransparency = 1,
-                Position = UDim2.fromOffset(IconX + IconSize + 6, 0),
-                Size = UDim2.new(1, -(IconX + IconSize + 6), 1, 0),
+                Position = UDim2.fromScale(0, 0),
+                Size = UDim2.fromScale(1, 1),
                 Text = Name,
                 TextSize = 16,
                 TextTransparency = 0.5,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Visible = not IsCompact,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Visible = not Icon,
                 Parent = ButtonHolder,
             })
 
             if Icon then
                 TabIcon = New("ImageLabel", {
-                    AnchorPoint = Vector2.new(0, 0.5),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
                     BackgroundTransparency = 1,
                     ImageColor3 = Icon.Custom and "WhiteColor" or "AccentColor",
                     ImageTransparency = 0.5,
-                    Position = UDim2.new(0, IconX, 0.5, 0),
+                    Position = UDim2.fromScale(0.5, 0.5),
                     ScaleType = Enum.ScaleType.Fit,
-                    Size = UDim2.fromOffset(IconSize, IconSize),
+                    Size = UDim2.fromOffset(20, 20),
                     ZIndex = 2,
                     Parent = ButtonHolder,
                 })
@@ -20855,7 +20847,7 @@ function Library:CreateWindow(WindowInfo)
             TabButton = New("TextButton", {
                 BackgroundColor3 = "MainColor",
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0, 132, 1, 0),
+                Size = UDim2.new(0, 56, 1, 0),
                 Text = "",
                 LayoutOrder = Order,
                 Parent = Tabs,
@@ -20888,36 +20880,33 @@ function Library:CreateWindow(WindowInfo)
                 Parent = TabButton,
             })
             ButtonPadding = New("UIPadding", {
-                PaddingBottom = UDim.new(0, IsCompact and 6 or 11),
-                PaddingLeft = UDim.new(0, IsCompact and 6 or 12),
-                PaddingRight = UDim.new(0, IsCompact and 6 or 12),
-                PaddingTop = UDim.new(0, IsCompact and 6 or 11),
+                PaddingBottom = UDim.new(0, 4),
+                PaddingLeft = UDim.new(0, 4),
+                PaddingRight = UDim.new(0, 4),
+                PaddingTop = UDim.new(0, 4),
                 Parent = ButtonHolder,
             })
-
-            local IconSize = IsCompact and 22 or 18
-            local IconX = IsCompact and (40 - IconSize) * 0.5 or 11
             TabLabel = New("TextLabel", {
                 BackgroundTransparency = 1,
-                Position = UDim2.fromOffset(IconX + IconSize + 6, 0),
-                Size = UDim2.new(1, -(IconX + IconSize + 6), 1, 0),
+                Position = UDim2.fromScale(0, 0),
+                Size = UDim2.fromScale(1, 1),
                 Text = Name,
                 TextSize = 16,
                 TextTransparency = 0.5,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Visible = not IsCompact,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Visible = not Icon,
                 Parent = ButtonHolder,
             })
 
             if Icon then
                 TabIcon = New("ImageLabel", {
-                    AnchorPoint = Vector2.new(0, 0.5),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
                     BackgroundTransparency = 1,
                     ImageColor3 = Icon.Custom and "WhiteColor" or "AccentColor",
                     ImageTransparency = 0.5,
-                    Position = UDim2.new(0, IconX, 0.5, 0),
+                    Position = UDim2.fromScale(0.5, 0.5),
                     ScaleType = Enum.ScaleType.Fit,
-                    Size = UDim2.fromOffset(IconSize, IconSize),
+                    Size = UDim2.fromOffset(20, 20),
                     ZIndex = 2,
                     Parent = ButtonHolder,
                 })
