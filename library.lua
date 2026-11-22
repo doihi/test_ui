@@ -16884,6 +16884,7 @@ function Library:CreateWindow(WindowInfo)
             AutomaticCanvasSize = Enum.AutomaticSize.X,
             ScrollingDirection = Enum.ScrollingDirection.X,
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 1,
             CanvasSize = UDim2.fromScale(0, 0),
             Position = UDim2.fromOffset(0, 0),
             ScrollBarThickness = 0,
@@ -16909,6 +16910,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
+            BackgroundTransparency = 1,
             ClipsDescendants = true,
             Name = "Container",
             Position = UDim2.fromOffset(0, 0),
