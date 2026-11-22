@@ -485,7 +485,7 @@ local Templates = {
         Glow = false,
 
         --// Soft drop shadow behind the window (low-risk visual polish)
-        Shadow = true,
+        Shadow = false,
         ShadowTransparency = 0.55,
         ShadowSize = 22,
         ShadowOffset = Vector2.new(0, 6),
@@ -15363,6 +15363,8 @@ function Library:CreateWindow(WindowInfo)
     local TabStripHeight = 40 + TabButtonsStyle.Padding * 2
     local TitlePanelHeight = 48
     local PanelGap = 6
+    local PanelTransparency = typeof(WindowInfo.PanelTransparency) == "number"
+        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.3
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
 
@@ -15386,6 +15388,7 @@ function Library:CreateWindow(WindowInfo)
     local TitlePanel
     local ContentPanel
     local TabPanel
+    local TabPanelBorder
     local DividerLine
     local TitleHolder
     local WindowTitle
@@ -15690,6 +15693,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
+            BackgroundTransparency = PanelTransparency,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.new(1, 0, 0, TitlePanelHeight),
             ZIndex = 1,
@@ -15705,6 +15709,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
+            BackgroundTransparency = PanelTransparency,
             Position = UDim2.fromOffset(0, TitlePanelHeight + PanelGap),
             Size = UDim2.new(1, 0, 1, -(TitlePanelHeight + TabStripHeight + PanelGap * 3)),
             ZIndex = 1,
@@ -15715,13 +15720,27 @@ function Library:CreateWindow(WindowInfo)
             Parent = ContentPanel,
         }))
 
+        TabPanelBorder = New("Frame", {
+            Name = "TabPanelBorder",
+            AnchorPoint = Vector2.new(0.5, 1),
+            BackgroundColor3 = Color3.fromRGB(120, 120, 120),
+            Position = UDim2.new(0.5, 0, 1, -5),
+            Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2 + 2, TabStripHeight + 2),
+            ZIndex = 1,
+            Parent = MainFrame,
+        })
+        table.insert(Library.PillCorners, New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = TabPanelBorder,
+        }))
+
         TabPanel = New("Frame", {
             Name = "TabPanel",
             AnchorPoint = Vector2.new(0.5, 1),
             BackgroundColor3 = "SecondaryAccentColor",
-            BackgroundTransparency = 0.25,
+            BackgroundTransparency = PanelTransparency,
             Position = UDim2.new(0.5, 0, 1, -6),
-            Size = UDim2.new(1, -24, 0, TabStripHeight),
+            Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2, TabStripHeight),
             ZIndex = 1,
             Parent = MainFrame,
         })
@@ -18342,6 +18361,14 @@ function Library:CreateWindow(WindowInfo)
     function Window:SetSidebarWidth(Width)
         --// [3-panel] panel geometry is fixed; keep the API for compatibility
         return Window
+    end
+
+    function Window:SetPanelTransparency(Value)
+        assert(typeof(Value) == "number", "Expected number for Value")
+        Value = math.clamp(Value, 0, 1)
+        TitlePanel.BackgroundTransparency = Value
+        ContentPanel.BackgroundTransparency = Value
+        TabPanel.BackgroundTransparency = Value
     end
 
     function Window:ShowTabInfo(Name, Description)
