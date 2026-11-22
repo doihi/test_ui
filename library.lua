@@ -15723,7 +15723,8 @@ function Library:CreateWindow(WindowInfo)
         TabPanelBorder = New("Frame", {
             Name = "TabPanelBorder",
             AnchorPoint = Vector2.new(0.5, 1),
-            BackgroundColor3 = Color3.fromRGB(120, 120, 120),
+            BackgroundColor3 = "OutlineColor",
+            BackgroundTransparency = 1,
             Position = UDim2.new(0.5, 0, 1, -5),
             Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2 + 2, TabStripHeight + 2),
             ZIndex = 1,
@@ -15760,6 +15761,29 @@ function Library:CreateWindow(WindowInfo)
             Rotation = 90,
             Parent = TabPanel,
         })
+
+        --// [outline] 1px frame borders synced to Scheme.OutlineColor \--
+        local function AddPanelOutline(Panel, Inset)
+            local function AddEdge(Name, Position, Size)
+                return New("Frame", {
+                    Name = Name,
+                    BackgroundColor3 = "OutlineColor",
+                    BackgroundTransparency = 0,
+                    BorderSizePixel = 0,
+                    Position = Position,
+                    Size = Size,
+                    ZIndex = 2,
+                    Parent = Panel,
+                })
+            end
+            AddEdge("OutlineTop", UDim2.new(0, Inset, 0, 0), UDim2.new(1, -Inset * 2, 0, 1))
+            AddEdge("OutlineBottom", UDim2.new(0, Inset, 1, -1), UDim2.new(1, -Inset * 2, 0, 1))
+            AddEdge("OutlineLeft", UDim2.new(0, 0, 0, Inset), UDim2.new(0, 1, 1, -Inset * 2))
+            AddEdge("OutlineRight", UDim2.new(1, -1, 0, Inset), UDim2.new(0, 1, 1, -Inset * 2))
+        end
+        AddPanelOutline(TitlePanel, 0)
+        AddPanelOutline(ContentPanel, 0)
+        AddPanelOutline(TabPanel, 10)
 
         --// Elements defined outside CreateWindow need this to overlay the window
         Library.MainFrame = MainFrame
