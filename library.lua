@@ -1,6 +1,4 @@
--- test-ui.lua: embedded library (based on doihi_Library.lua)
--- splash screen and library-origin UIStroke are removed; the API is Library.*
--- Window is split into three stacked visual windows: title, content, icon tabs.
+
 local Library = (function()
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
@@ -15337,7 +15335,7 @@ function Library:CreateWindow(WindowInfo)
     WindowInfo.CompactWidthActivation = math.max(40 + TabButtonsStyle.Padding * 2, WindowInfo.CompactWidthActivation)
     --// [3-panel] stacked windows: title / content / icon tabs
     local TabStripHeight = 40 + TabButtonsStyle.Padding * 2
-    local TitlePanelHeight = 48 + 20
+    local TitlePanelHeight = 48
     local PanelGap = 6
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
@@ -15682,7 +15680,7 @@ function Library:CreateWindow(WindowInfo)
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
             Position = UDim2.fromOffset(0, TitlePanelHeight + PanelGap),
-            Size = UDim2.new(1, 0, 1, -(TitlePanelHeight + TabStripHeight + PanelGap * 2)),
+            Size = UDim2.new(1, 0, 1, -(TitlePanelHeight + TabStripHeight + PanelGap * 3)),
             ZIndex = 1,
             Parent = MainFrame,
         })
@@ -15693,17 +15691,30 @@ function Library:CreateWindow(WindowInfo)
 
         TabPanel = New("Frame", {
             Name = "TabPanel",
-            AnchorPoint = Vector2.new(0, 1),
-            BackgroundColor3 = "BackgroundColor",
-            Position = UDim2.new(0, 0, 1, 0),
-            Size = UDim2.new(1, 0, 0, TabStripHeight),
+            AnchorPoint = Vector2.new(0.5, 1),
+            BackgroundColor3 = "SecondaryAccentColor",
+            BackgroundTransparency = 0.25,
+            Position = UDim2.new(0.5, 0, 1, -6),
+            Size = UDim2.new(1, -24, 0, TabStripHeight),
             ZIndex = 1,
             Parent = MainFrame,
         })
-        table.insert(Library.Corners, New("UICorner", {
-            CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+        table.insert(Library.PillCorners, New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
             Parent = TabPanel,
         }))
+        New("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 170, 220)),
+            }),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.55),
+                NumberSequenceKeypoint.new(1, 0.9),
+            }),
+            Rotation = 90,
+            Parent = TabPanel,
+        })
 
         --// Elements defined outside CreateWindow need this to overlay the window
         Library.MainFrame = MainFrame
@@ -16562,9 +16573,9 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20 + WindowInfo.CornerRadius),
-            Parent = TitlePanel
+            Parent = ContentPanel
         })
-        local BottomDividerLine = Library:MakeLine(TitlePanel, {
+        local BottomDividerLine = Library:MakeLine(ContentPanel, {
             AnchorPoint = Vector2.new(0, 1),
             Position = UDim2.new(0, 0, 1, -20),
             Size = UDim2.new(1, 0, 0, 1),
@@ -16575,7 +16586,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundTransparency = 1,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
-            Parent = TitlePanel,
+            Parent = ContentPanel,
         })
         table.insert(
             Library.Corners,
@@ -18147,7 +18158,7 @@ function Library:CreateWindow(WindowInfo)
                 continue
             end
 
-            Button.Label.Visible = not Button.Icon
+            Button.Label.Visible = false
             Button.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
             Button.Icon.Position = UDim2.fromScale(0.5, 0.5)
             Button.Icon.Size = UDim2.fromOffset(20, 20)
@@ -18453,7 +18464,7 @@ function Library:CreateWindow(WindowInfo)
                 TextSize = 16,
                 TextTransparency = 0.5,
                 TextXAlignment = Enum.TextXAlignment.Center,
-                Visible = not Icon,
+                Visible = false,
                 Parent = ButtonHolder,
             })
 
@@ -20939,7 +20950,7 @@ function Library:CreateWindow(WindowInfo)
                 TextSize = 16,
                 TextTransparency = 0.5,
                 TextXAlignment = Enum.TextXAlignment.Center,
-                Visible = not Icon,
+                Visible = false,
                 Parent = ButtonHolder,
             })
 
