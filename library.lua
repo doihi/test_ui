@@ -22321,8 +22321,23 @@ function Library:CreateWindow(WindowInfo)
     --// show glows in while the fade-in is running; hidden cases fade straight out
     local function EnterAnimation(Inst, Visible)
         for _, Child in Inst:GetDescendants() do
-            if Child:IsA("GuiObject") and Child.Visible and (typeof(Child.BackgroundTransparency) == "number" and Child.BackgroundTransparency < 0.99 or typeof(Child.TextTransparency) == "number" and Child.TextTransparency < 0.99) then
-                SafeTweenCreate(Child, GLASS_SHIM_INFO, { BackgroundTransparency = math.min(0.7, Child.BackgroundTransparency + 0.18), TextTransparency = math.min(0.7, Child.TextTransparency + 0.18) }):Play()
+            if Child:IsA("GuiObject") and Child.Visible then
+                --// Only text GuiObjects have TextTransparency; reading it on
+                --// frames/images/UIScale/etc. would error. Only tween members
+                --// the child actually has.
+                local IsText = Child:IsA("TextLabel") or Child:IsA("TextButton") or Child:IsA("TextBox")
+                local Bg = Child.BackgroundTransparency
+                local Txt = 1
+                if IsText then
+                    Txt = Child.TextTransparency
+                end
+                if Bg < 0.99 or (IsText and Txt < 0.99) then
+                    local Goal = { BackgroundTransparency = math.min(0.7, Bg + 0.18) }
+                    if IsText then
+                        Goal.TextTransparency = math.min(0.7, Txt + 0.18)
+                    end
+                    SafeTweenCreate(Child, GLASS_SHIM_INFO, Goal):Play()
+                end
             end
         end
         Inst.Visible = Visible
@@ -22539,6 +22554,12 @@ function Library:CreateWindow(WindowInfo)
     --// [liquid-glass] seed the fade cache and start the chrome invisible, so the
     --// very first reveal fades in like every later toggle instead of popping.
     local function SeedFade(Desc)
+        --// Only GuiObjects expose transparency members; UIScale/UICorner/UIStroke/
+        --// UIListLayout/UIGradient/etc. would error on BackgroundTransparency.
+        if not Desc or not Desc:IsA("GuiObject") then
+            return
+        end
+
         local Props
         if Desc:IsA("ImageLabel") or Desc:IsA("ImageButton") then
             Props = ImageProperties
