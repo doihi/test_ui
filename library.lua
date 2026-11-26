@@ -1,5 +1,7 @@
 -- test-ui.lua: embedded library (based on doihi_Library.lua)
--- splash screen and library-origin UIStroke are removed; the API is Library.*
+-- Liquid Glass edition: every surface is a sheet of translucent tinted glass —
+-- specular hairline rims, a vertical polish gradient, and a slow diagonal sheen
+-- that sweeps across the main panels. The API is Library.*.
 -- Window is split into three stacked visual windows: title, content, icon tabs.
 local Library = (function()
 local cloneref = (cloneref or clonereference or function(instance: any)
@@ -298,7 +300,7 @@ local Library = {
     SmoothScrollDistance = 120,
 
     Animations = {
-        ToggleWindow = false,
+        ToggleWindow = true,
         TabSwitch = false,
         Groupbox = false,
         Dropdown = false,
@@ -339,18 +341,20 @@ local Library = {
     OriginalMinSize = Vector2.new(480, 360),
     MinSize = Vector2.new(480, 360),
     DPIScale = 1,
-    CornerRadius = 4,
+    CornerRadius = 16,
 
     --// Scheme \\--
     IsLightTheme = false,
     Scheme = {
-        BackgroundColor = Color3.fromRGB(15, 15, 15),
-        MainColor = Color3.fromRGB(25, 25, 25),
+        --// Liquid Glass: cool deep tint for the glass body, brighter hairlines
+        --// so edges read on translucent panels, SF-style type (Gotham).
+        BackgroundColor = Color3.fromRGB(14, 16, 22),
+        MainColor = Color3.fromRGB(32, 36, 46),
         AccentColor = Color3.fromRGB(125, 85, 255),
         SecondaryAccentColor = Color3.fromRGB(180, 200, 255),
-        OutlineColor = Color3.fromRGB(40, 40, 40),
+        OutlineColor = Color3.fromRGB(62, 68, 84),
         FontColor = Color3.new(1, 1, 1),
-        Font = Font.fromEnum(Enum.Font.Code),
+        Font = Font.fromEnum(Enum.Font.Gotham),
 
         RedColor = Color3.fromRGB(255, 50, 50),
         BlueColor = Color3.fromRGB(80, 155, 255),
@@ -476,7 +480,8 @@ local Templates = {
         MinimizedSubtitle = "",
         AutoMinimize = false,
 
-        CornerRadius = 4,
+        CornerRadius = 16,
+        PanelTransparency = 0.34,
         NotifySide = "Right",
         DisableNotificationBell = false,
         ShowCustomCursor = true,
@@ -484,10 +489,10 @@ local Templates = {
         --// Glow \\--
         Glow = false,
 
-        --// Soft drop shadow behind the window (low-risk visual polish)
-        Shadow = false,
-        ShadowTransparency = 0.55,
-        ShadowSize = 22,
+        --// Soft drop shadow behind the window — on by default: glass floats
+        Shadow = true,
+        ShadowTransparency = 0.5,
+        ShadowSize = 26,
         ShadowOffset = Vector2.new(0, 6),
         ShadowColor = "DarkColor",
 
@@ -514,7 +519,7 @@ local Templates = {
         FullscreenBackgroundImage = nil,
         FullscreenBackgroundImageTransparency = 0.2,
 
-        Font = Enum.Font.Code,
+        Font = Enum.Font.Gotham,
         ToggleKeybind = Enum.KeyCode.RightControl,
 
         ShowMobileButtons = true,
@@ -541,7 +546,7 @@ local Templates = {
 
         --// Animations \\--
         Animations = {
-            ToggleWindow = false,
+            ToggleWindow = true,
             TabSwitch = false,
             Groupbox = false,
             Dropdown = false,
@@ -555,7 +560,7 @@ local Templates = {
           TabButtonsStyle = {
               Gap = 4,
               Padding = 6,
-              CornerRadius = 6,
+              CornerRadius = 12,
             Indicator = false,
             IndicatorOrientation = "horizontal",
             IndicatorWidth = 2,
@@ -1874,23 +1879,11 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
 end
 
 local function New(ClassName: string, Properties: { [string]: any }): any
-    local InstanceGG
-    if ClassName == "UIStroke" then
-        --// [embedded] UIStroke is intentionally not created; use an inert
-        --// proxy that still passes through FillInstance and Registry.
-        local NoStroke = {}
-        setmetatable(NoStroke, {
-            __newindex = function() end,
-            __index = function()
-                return function()
-                    return nil
-                end
-            end,
-        })
-        InstanceGG = NoStroke
-    else
-        InstanceGG = Instance.new(ClassName)
-    end
+    --// [liquid-glass] real UIStroke instances are back: the specular hairline
+    --// rim is the core of the glass material, and all of the library's existing
+    --// stroke/registry wiring (focus accents, toggle glow, sub-tab chips, ...)
+    --// drives them directly.
+    local InstanceGG = Instance.new(ClassName)
 
     if Templates[ClassName] then
         FillInstance(Templates[ClassName], InstanceGG)
@@ -2836,9 +2829,14 @@ function Library:MakeCover(Holder: GuiObject, Place: string)
 end
 
 function Library:MakeLine(Frame: GuiObject, Info)
+    --// Glass divider: a faint light hairline instead of a solid rule, so
+    --// separators read as etched into the surface rather than drawn on it.
     local Line = New("Frame", {
         AnchorPoint = Info.AnchorPoint or Vector2.zero,
-        BackgroundColor3 = "OutlineColor",
+        BackgroundColor3 = function()
+            return Library.IsLightTheme and Color3.new(0, 0, 0) or Color3.new(1, 1, 1)
+        end,
+        BackgroundTransparency = 0.86,
         LayoutOrder = Info.LayoutOrder or 0,
         Position = Info.Position,
         Size = Info.Size,
@@ -2850,15 +2848,23 @@ function Library:MakeLine(Frame: GuiObject, Info)
 end
 
 function Library:AddOutline(Frame: GuiObject)
+    --// Liquid Glass rim: a bright specular hairline tracing the glass edge,
+    --// over a soft dark outer stroke so the panel separates from any scene.
     local OutlineStroke = New("UIStroke", {
-        Color = "OutlineColor",
+        Color = function()
+            return Library.IsLightTheme and Color3.fromRGB(24, 26, 34) or Color3.fromRGB(255, 255, 255)
+        end,
+        Transparency = function()
+            return Library.IsLightTheme and 0.72 or 0.8
+        end,
         Thickness = 1,
         ZIndex = 2,
         Parent = Frame,
     })
     local ShadowStroke = New("UIStroke", {
         Color = "DarkColor",
-        Thickness = 1.5,
+        Transparency = 0.62,
+        Thickness = 1.6,
         ZIndex = 1,
         Parent = Frame,
     })
@@ -2872,6 +2878,132 @@ function Library:AddBlank(Frame: GuiObject, Size: UDim2)
         Parent = Frame,
     })
 end
+
+--// ============================================================ \\--
+--// Liquid Glass material
+--// ------------------------------------------------------------
+--// Every panel is a sheet of tinted glass:
+--//   * a translucent cool tint (the Scheme.BackgroundColor family)
+--//   * a vertical "polish" gradient — bright at the top edge, falling
+--//     off toward the bottom, like light raking across a curved surface
+--//   * a specular hairline rim (AddOutline / the panel rims)
+--//   * on the main windows, a slow diagonal sheen that sweeps across the
+--//     surface every few seconds — the "liquid" in Liquid Glass
+--// ============================================================ \\--
+local GlassSweeps = {}
+
+--// Vertical polish gradient applied straight to a surface's background.
+--// Adds no children, so it is safe on layout-driven and auto-sized frames.
+--// Skip surfaces that already carry their own UIGradient.
+local function ApplyGlassGradient(Surface: GuiObject)
+    if Surface:FindFirstChildOfClass("UIGradient") then
+        return
+    end
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(222, 227, 238)),
+        }),
+        Rotation = 90,
+        Parent = Surface,
+    })
+end
+
+--// Animated diagonal sheen: a narrow band of light crosses the surface,
+--// rests, then crosses again. Only for fixed-size surfaces (a relative-sized
+--// child would fight an AutomaticSize parent). The sweep sits at the parent's
+--// ZIndex and is added before the content, so it renders above the glass body
+--// but below everything placed on the glass.
+local function ApplyGlassSweep(Surface: GuiObject, CornerRadius: UDim?, Phase: number?)
+    local Sweep = New("Frame", {
+        Name = "GlassSweep",
+        Active = false,
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BackgroundTransparency = 0,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = Surface.ZIndex,
+        Parent = Surface,
+    })
+    if CornerRadius then
+        New("UICorner", {
+            CornerRadius = CornerRadius,
+            Parent = Sweep,
+        })
+    end
+    local Gradient = New("UIGradient", {
+        Rotation = 28,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.40, 1),
+            NumberSequenceKeypoint.new(0.5, 0.93),
+            NumberSequenceKeypoint.new(0.60, 1),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+        Offset = Vector2.new(2, 0),
+        Parent = Sweep,
+    })
+    table.insert(GlassSweeps, {
+        Frame = Sweep,
+        Gradient = Gradient,
+        Phase = Phase or 0,
+    })
+    return Sweep
+end
+
+local function IsGlassSurfaceVisible(Frame: GuiObject): boolean
+    local Current: Instance? = Frame
+    while Current do
+        if Current:IsA("GuiObject") and not Current.Visible then
+            return false
+        end
+        if Current:IsA("ScreenGui") and not Current.Enabled then
+            return false
+        end
+        Current = Current.Parent
+    end
+    return true
+end
+
+--// One shared render loop drives every sheen, throttled to ~30fps and idle
+--// whenever its surface is off screen.
+local GlassSweepClock = 0
+local GlassSweepAccum = 0
+local GLASS_SWEEP_PERIOD = 8
+local GLASS_SWEEP_DURATION = 4.6
+
+Library:GiveSignal(RunService.RenderStepped:Connect(function(DeltaTime: number)
+    if Library.Unloaded then
+        return
+    end
+
+    GlassSweepAccum += DeltaTime
+    if GlassSweepAccum < 1 / 30 then
+        return
+    end
+    GlassSweepClock += GlassSweepAccum
+    GlassSweepAccum = 0
+
+    for Index = #GlassSweeps, 1, -1 do
+        local Sweep = GlassSweeps[Index]
+        if not Sweep.Frame.Parent then
+            table.remove(GlassSweeps, Index)
+            continue
+        end
+        if not IsGlassSurfaceVisible(Sweep.Frame) then
+            continue
+        end
+
+        local T = (GlassSweepClock + Sweep.Phase) % GLASS_SWEEP_PERIOD
+        if T <= GLASS_SWEEP_DURATION then
+            local P = T / GLASS_SWEEP_DURATION
+            --// Smoothstep: the light eases into and out of the crossing
+            P = P * P * (3 - 2 * P)
+            Sweep.Gradient.Offset = Vector2.new(-1.35 + 2.7 * P, 0)
+        else
+            Sweep.Gradient.Offset = Vector2.new(2, 0)
+        end
+    end
+end))
 
 --// Animations \\--
 local TransparencyCache = {}
@@ -2906,9 +3038,10 @@ local SLIDER_BALL_TWEEN = TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.Easing
 --// Room above and below the bar for the ball to overflow into
 local SLIDER_BALL_MARGIN = math.ceil((SLIDER_BALL_SIZE_ACTIVE - SLIDER_BAR_HEIGHT) / 2)
 --// The track ramps the opposite way to the switch: lighter at the left, darker
---// to the right, so the filled part always reads brighter than what follows it
-local SLIDER_TRACK_GRADIENT_FROM = Color3.fromRGB(138, 138, 138)
-local SLIDER_TRACK_GRADIENT_TO = Color3.fromRGB(64, 64, 64)
+--// to the right, so the filled part always reads brighter than what follows it.
+--// Liquid Glass: a cool recessed channel rather than flat grey.
+local SLIDER_TRACK_GRADIENT_FROM = Color3.fromRGB(96, 102, 118)
+local SLIDER_TRACK_GRADIENT_TO = Color3.fromRGB(46, 50, 62)
 
 --// Sub tab content always swipes from the bottom, independent of Library.TabSwipeFrom
 local SUB_TAB_SWIPE_FROM = "bottom"
@@ -3486,6 +3619,7 @@ function Library:AddDraggableLabel(...)
     local Label = New("TextLabel", {
         AutomaticSize = Enum.AutomaticSize.XY,
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.3,
         Size = UDim2.fromOffset(0, 0),
         Position = UDim2.fromOffset(6, 6),
         Text = Text,
@@ -3501,6 +3635,7 @@ function Library:AddDraggableLabel(...)
             Parent = Label,
         })
     )
+    ApplyGlassGradient(Label)
 
     local Padding = New("UIPadding", {
         PaddingBottom = UDim.new(0, 6),
@@ -3611,6 +3746,7 @@ function Library:AddWatermark(Segments: { any }?)
         AnchorPoint = Vector2.zero,
         AutomaticSize = Enum.AutomaticSize.XY,
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.3,
         Position = UDim2.fromOffset(6, 6),
         Size = UDim2.fromOffset(0, 0),
         ZIndex = 10,
@@ -3624,6 +3760,7 @@ function Library:AddWatermark(Segments: { any }?)
             Parent = Holder,
         })
     )
+    ApplyGlassGradient(Holder)
 
     New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
@@ -3894,6 +4031,7 @@ function Library:AddDraggableButton(...)
 
     local Button = New("TextButton", {
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.3,
         Position = UDim2.fromOffset(6, 6),
         TextSize = 16,
         ZIndex = 1,
@@ -3906,6 +4044,7 @@ function Library:AddDraggableButton(...)
             Parent = Button,
         })
     )
+    ApplyGlassGradient(Button)
     if not ExcludeScaling then
         table.insert(
             Library.Scales,
@@ -3983,6 +4122,7 @@ function Library:AddDraggableMenu(Name: string)
     local Holder = New("Frame", {
         AutomaticSize = Enum.AutomaticSize.XY,
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.3,
         Position = UDim2.fromOffset(6, 6),
         Size = UDim2.fromOffset(0, 0),
         ZIndex = 1,
@@ -3995,6 +4135,7 @@ function Library:AddDraggableMenu(Name: string)
             Parent = Holder,
         })
     )
+    ApplyGlassGradient(Holder)
     table.insert(
         Library.Scales,
         New("UIScale", {
@@ -4078,6 +4219,7 @@ function Library:AddDraggableImageButton(...)
 
     local Button = New("TextButton", {
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.3,
         Position = UDim2.fromOffset(6, 6),
         Size = UDim2.fromOffset(IconSize + 12, IconSize + 12),
         Text = "",
@@ -4102,6 +4244,7 @@ function Library:AddDraggableImageButton(...)
             Parent = Button,
         })
     )
+    ApplyGlassGradient(Button)
     if not ExcludeScaling then
         table.insert(
             Library.Scales,
@@ -4204,6 +4347,7 @@ function Library:AddContextMenu(
             AutomaticCanvasSize = Enum.AutomaticSize.None,
             AutomaticSize = List == 1 and Enum.AutomaticSize.Y or Enum.AutomaticSize.None,
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.2,
             BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
             CanvasSize = UDim2.fromOffset(0, 0),
             ScrollBarImageColor3 = "OutlineColor",
@@ -4217,12 +4361,14 @@ function Library:AddContextMenu(
     else
         Menu = New("Frame", {
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.2,
             Size = typeof(Size) == "function" and Size() or Size,
             Visible = false,
             ZIndex = 1,
             Parent = ParentGui,
         })
     end
+    ApplyGlassGradient(Menu)
     table.insert(
         Library.Scales,
         New("UIScale", {
@@ -4546,6 +4692,7 @@ end))
 local TooltipLabel = New("TextLabel", {
     AutomaticSize = Enum.AutomaticSize.Y,
     BackgroundColor3 = "BackgroundColor",
+    BackgroundTransparency = 0.25,
     TextSize = 14,
     TextWrapped = true,
     Visible = false,
@@ -4553,12 +4700,20 @@ local TooltipLabel = New("TextLabel", {
     Parent = ScreenGui,
 })
 New("UIPadding", {
-    PaddingBottom = UDim.new(0, 2),
-    PaddingLeft = UDim.new(0, 4),
-    PaddingRight = UDim.new(0, 4),
-    PaddingTop = UDim.new(0, 2),
+    PaddingBottom = UDim.new(0, 3),
+    PaddingLeft = UDim.new(0, 7),
+    PaddingRight = UDim.new(0, 7),
+    PaddingTop = UDim.new(0, 3),
     Parent = TooltipLabel,
 })
+table.insert(
+    Library.Corners,
+    New("UICorner", {
+        CornerRadius = UDim.new(0, Library.CornerRadius / 2),
+        Parent = TooltipLabel,
+    })
+)
+ApplyGlassGradient(TooltipLabel)
 table.insert(
     Library.Scales,
     New("UIScale", {
@@ -4587,7 +4742,7 @@ TooltipLabel:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
         (workspace.CurrentCamera.ViewportSize.X - TooltipLabel.AbsolutePosition.X - 8) / Library.DPIScale
     )
 
-    TooltipLabel.Size = UDim2.fromOffset(X + 8, 0)
+    TooltipLabel.Size = UDim2.fromOffset(X + 14, 0)
 end)
 --// Smooth pop animation \\--
 local TOOLTIP_SHOW_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -4615,7 +4770,7 @@ local function ShowTooltip()
     TooltipLabel.Visible = true
 
     local Scale = SafeTweenCreate(TooltipPopScale, TOOLTIP_SHOW_TWEEN, { Scale = 1 })
-    local Body = SafeTweenCreate(TooltipLabel, TOOLTIP_SHOW_TWEEN, { BackgroundTransparency = 0, TextTransparency = 0 })
+    local Body = SafeTweenCreate(TooltipLabel, TOOLTIP_SHOW_TWEEN, { BackgroundTransparency = 0.25, TextTransparency = 0 })
     local Stroke = SafeTweenCreate(TooltipStroke, TOOLTIP_SHOW_TWEEN, { Transparency = 0 })
 
     TooltipTweens = { Scale, Body, Stroke }
@@ -4990,6 +5145,7 @@ do
 
         local Picker = New("TextButton", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.3,
             Size = UDim2.fromOffset(18, 18),
             Text = (IsForButton and SlideOverflow) and "" or KeyPicker.Value,
             TextSize = 14,
@@ -5062,6 +5218,7 @@ do
             end
 
             TweenPickerTextTransparency(0)
+            SafeTweenCreate(Picker, Library.TweenInfo, { BackgroundTransparency = 0.15 }):Play()
         end))
 
         table.insert(KeyPicker.Connections, Picker.MouseLeave:Connect(function()
@@ -5070,6 +5227,7 @@ do
             end
 
             TweenPickerTextTransparency(0.4)
+            SafeTweenCreate(Picker, Library.TweenInfo, { BackgroundTransparency = 0.3 }):Play()
         end))
 
         if IsForButton then
@@ -5119,6 +5277,7 @@ do
             local Checkbox = New("Frame", {
                 AnchorPoint = Vector2.new(0, 0.5),
                 BackgroundColor3 = "MainColor",
+                BackgroundTransparency = 0.35,
                 Position = UDim2.fromScale(0, 0.5),
                 Size = UDim2.fromOffset(14, 14),
                 SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -5131,6 +5290,8 @@ do
                     Parent = Checkbox,
                 })
             )
+            ApplyGlassGradient(Checkbox)
+
             New("UIStroke", {
                 Color = "OutlineColor",
                 Parent = Checkbox,
@@ -6864,6 +7025,12 @@ do
     end
 end
 
+--// The player-card helpers live inside the BaseGroupbox block below, but
+--// Tab:AddPlayerInfo (in CreateWindow) also needs them; forward-declare here
+--// so both scopes share the same definitions.
+local CreatePlayerCard
+local PLAYER_CARD_BANNER_INSET
+
 local BaseGroupbox = {}
 do
     local Funcs = {}
@@ -6911,6 +7078,7 @@ do
 
         local TableFrame = New("Frame", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.35,
             Size = UDim2.new(1, 0, 1, 0),
             ClipsDescendants = true,
             Parent = Holder,
@@ -6922,6 +7090,7 @@ do
                 Parent = TableFrame,
             })
         )
+        ApplyGlassGradient(TableFrame)
         Library:AddOutline(TableFrame)
 
         local HeaderFrame = New("Frame", {
@@ -7649,6 +7818,7 @@ do
             local Base = New("TextButton", {
                 Active = not Button.Disabled,
                 BackgroundColor3 = Button.Disabled and "BackgroundColor" or "MainColor",
+                BackgroundTransparency = Button.Disabled and 0.6 or 0.35,
                 Size = UDim2.fromScale(1, 1),
                 Text = Button.Text,
                 TextSize = 14,
@@ -7682,6 +7852,7 @@ do
 
                 Button.Tween = SafeTweenCreate(Button.Base, Library.TweenInfo, {
                     TextTransparency = 0,
+                    BackgroundTransparency = 0.15,
                 })
                 Button.Tween:Play()
             end))
@@ -7692,6 +7863,7 @@ do
 
                 Button.Tween = SafeTweenCreate(Button.Base, Library.TweenInfo, {
                     TextTransparency = 0.4,
+                    BackgroundTransparency = 0.35,
                 })
                 Button.Tween:Play()
             end))
@@ -7766,6 +7938,7 @@ do
 
                 SubButton.Base.BackgroundColor3 = SubButton.Disabled and Library.Scheme.BackgroundColor
                     or Library.Scheme.MainColor
+                SubButton.Base.BackgroundTransparency = SubButton.Disabled and 0.6 or 0.35
                 SubButton.Base.TextTransparency = SubButton.Disabled and 0.8 or 0.4
                 SubButton.Stroke.Transparency = SubButton.Disabled and 0.5 or 0
 
@@ -7862,6 +8035,7 @@ do
 
             Button.Base.BackgroundColor3 = Button.Disabled and Library.Scheme.BackgroundColor
                 or Library.Scheme.MainColor
+            Button.Base.BackgroundTransparency = Button.Disabled and 0.6 or 0.35
             Button.Base.TextTransparency = Button.Disabled and 0.8 or 0.4
             Button.Stroke.Transparency = Button.Disabled and 0.5 or 0
 
@@ -8303,6 +8477,13 @@ do
             Color = "OutlineColor",
             Parent = Switch,
         })
+        --// Accent bloom around the track while the toggle is on
+        local SwitchGlow = New("UIStroke", {
+            Color = "AccentColor",
+            Thickness = 3,
+            Transparency = 1,
+            Parent = Switch,
+        })
 
         local Ball = New("Frame", {
             BackgroundColor3 = "FontColor",
@@ -8312,6 +8493,12 @@ do
         })
         New("UICorner", {
             CornerRadius = UDim.new(1, 0),
+            Parent = Ball,
+        })
+        New("UIStroke", {
+            Color = "DarkColor",
+            Transparency = 0.65,
+            Thickness = 1,
             Parent = Ball,
         })
 
@@ -8326,7 +8513,8 @@ do
 
             local Offset = Toggle.Value and 1 or 0
 
-            Switch.BackgroundTransparency = Toggle.Disabled and 0.75 or 0
+            --// Off: a translucent glass track. On: solid vibrant accent + bloom.
+            Switch.BackgroundTransparency = Toggle.Disabled and 0.75 or (Toggle.Value and 0 or 0.35)
             SwitchStroke.Transparency = Toggle.Disabled and 0.75 or 0
 
             Switch.BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.MainColor
@@ -8335,8 +8523,13 @@ do
             Library.Registry[Switch].BackgroundColor3 = Toggle.Value and "AccentColor" or "MainColor"
             Library.Registry[SwitchStroke].Color = Toggle.Value and "AccentColor" or "OutlineColor"
 
+            SafeTweenCreate(SwitchGlow, Library.TweenInfo, {
+                Transparency = (Toggle.Value and not Toggle.Disabled) and 0.55 or 1,
+            }):Play()
+
             if Toggle.Disabled then
                 Label.TextTransparency = 0.8
+                SwitchGlow.Transparency = 1
                 Ball.AnchorPoint = Vector2.new(Offset, 0)
                 Ball.Position = UDim2.fromScale(Offset, 0)
 
@@ -8550,6 +8743,7 @@ do
         local Box = New("TextBox", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.3,
             ClearTextOnFocus = not Input.Disabled and Input.ClearTextOnFocus,
             PlaceholderText = Input.Placeholder,
             Position = UDim2.fromScale(0, 1),
@@ -8592,6 +8786,7 @@ do
             BoxStroke.Transparency = Input.Disabled and 0.5 or 0
 
             Box.BackgroundColor3 = Input.Disabled and Library.Scheme.BackgroundColor or Library.Scheme.MainColor
+            Box.BackgroundTransparency = Input.Disabled and 0.6 or 0.3
             Library.Registry[Box].BackgroundColor3 = Input.Disabled and "BackgroundColor" or "MainColor"
         end
 
@@ -8823,8 +9018,9 @@ do
         local Bar = New("TextButton", {
             Active = not Slider.Disabled,
             AnchorPoint = Vector2.new(0, 1),
-            --// Same grey material as the switch track, rather than near black
+            --// Same glass material as the switch track, rather than near black
             BackgroundColor3 = Info.Compact and "MainColor" or "FontColor",
+            BackgroundTransparency = Info.Compact and 0.3 or 0.25,
             Position = Info.Compact and UDim2.fromScale(0, 1)
                 or UDim2.new(0, 0, 1, -SLIDER_BALL_MARGIN),
             Size = UDim2.new(1, 0, 0, Info.Compact and 15 or SLIDER_BAR_HEIGHT),
@@ -8895,6 +9091,21 @@ do
             Size = UDim2.fromScale(0.5, 1),
             ZIndex = Bar.ZIndex + 1,
             Parent = Bar,
+        })
+        --// Polished accent fill: light catches the top edge, soft bloom outside
+        New("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 205, 220)),
+            }),
+            Rotation = 90,
+            Parent = Fill,
+        })
+        New("UIStroke", {
+            Color = "AccentColor",
+            Thickness = 2,
+            Transparency = 0.6,
+            Parent = Fill,
         })
 
         --// Ball riding the fill edge. Not shown in compact, which has no room.
@@ -9448,7 +9659,7 @@ local function GetPlayerThumbnail(UserId: number, ThumbnailType: string?, Compac
     return string.format("rbxthumb://type=%s&id=%s&w=%d&h=%d", Type, tostring(UserId), Size, Size)
 end
 
-local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inset: { X: number, Width: number }, OnResize: () -> ())
+function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inset: { X: number, Width: number }, OnResize: () -> ())
     local PlayerInfo = {
         Connections = {},
         Destroyed = false,
@@ -9608,6 +9819,7 @@ local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inse
     if IsCompact then
         Body = New("Frame", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.35,
             Size = UDim2.new(1, 0, 0, PlayerInfo.Height),
             Parent = Holder,
         })
@@ -9615,6 +9827,7 @@ local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inse
             CornerRadius = UDim.new(0, Library.CornerRadius / 2),
             Parent = Body,
         }))
+        ApplyGlassGradient(Body)
         Library:AddOutline(Body)
 
         New("UIPadding", {
@@ -9634,6 +9847,7 @@ local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inse
     else
         local Box = New("Frame", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.35,
             Size = UDim2.fromScale(1, 1),
             Parent = Holder,
         })
@@ -9641,6 +9855,7 @@ local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inse
             CornerRadius = UDim.new(0, Library.CornerRadius),
             Parent = Box,
         }))
+        ApplyGlassGradient(Box)
         Library:AddOutline(Box)
 
         New("UIPadding", {
@@ -9773,7 +9988,7 @@ local function CreatePlayerCard(Info, Parent: Instance, IsCompact: boolean, Inse
 end
 
 local PLAYER_CARD_NO_INSET = { X = 0, Width = 0 }
-local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
+PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
     --// Ported from white558_Library.lua: AddDropdown overhaul (Searchable/FormatListValue/SelectAll/Expandable) + AddPriorityDropdown \--
     function Funcs:AddDropdown(Idx, Info)
@@ -9848,6 +10063,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         local DisplayContainer = New("TextButton", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.3,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 21),
             Text = "",
@@ -9907,6 +10123,20 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         if ArrowIcon then
             Library:ApplyLucideIcon(ArrowImage, ArrowIcon)
         end
+
+        --// Glass lights up under the cursor
+        DisplayContainer.MouseEnter:Connect(function()
+            if Dropdown.Disabled then
+                return
+            end
+            SafeTweenCreate(DisplayContainer, Library.TweenInfo, { BackgroundTransparency = 0.15 }):Play()
+        end)
+        DisplayContainer.MouseLeave:Connect(function()
+            if Dropdown.Disabled then
+                return
+            end
+            SafeTweenCreate(DisplayContainer, Library.TweenInfo, { BackgroundTransparency = 0.3 }):Play()
+        end)
 
         --// Opens every value in a panel over the window
         local ExpandButton
@@ -10185,6 +10415,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
 
             Label.TextTransparency = Dropdown.Disabled and 0.8 or 0
             DisplayButton.TextTransparency = Dropdown.Disabled and 0.8 or 0
+            DisplayContainer.BackgroundTransparency = Dropdown.Disabled and 0.6 or 0.3
             DisplayImage.ImageTransparency = Dropdown.Disabled and 0.8 or 0
             ArrowImage.ImageTransparency = Dropdown.Disabled and 0.8 or MenuTable.Active and 0 or 0.5
 
@@ -10994,7 +11225,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
             ExpandOverlay = New("TextButton", {
                 AutoButtonColor = false,
                 BackgroundColor3 = "DarkColor",
-                BackgroundTransparency = 1,
+                BackgroundTransparency = 0.28,
                 Size = UDim2.fromScale(1, 1),
                 Text = "",
                 Visible = false,
@@ -11008,6 +11239,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     Parent = ExpandOverlay,
                 })
             )
+            ApplyGlassGradient(ExpandOverlay)
 
             --// A TextButton so clicks on the panel do not fall through and close it
             ExpandFrame = New("TextButton", {
@@ -11028,7 +11260,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
                     Parent = ExpandFrame,
                 })
             )
-            Library:AddOutline(ExpandFrame)
+            ApplyGlassGradient(ExpandFrame)
 
             ExpandScale = New("UIScale", {
                 Scale = 1,
@@ -11665,6 +11897,7 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         local DisplayContainer = New("TextButton", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.3,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 21),
             Text = "",
@@ -11714,6 +11947,20 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         if ArrowIcon then
             Library:ApplyLucideIcon(ArrowImage, ArrowIcon)
         end
+
+        --// Glass lights up under the cursor
+        DisplayContainer.MouseEnter:Connect(function()
+            if Priority.Disabled then
+                return
+            end
+            SafeTweenCreate(DisplayContainer, Library.TweenInfo, { BackgroundTransparency = 0.15 }):Play()
+        end)
+        DisplayContainer.MouseLeave:Connect(function()
+            if Priority.Disabled then
+                return
+            end
+            SafeTweenCreate(DisplayContainer, Library.TweenInfo, { BackgroundTransparency = 0.3 }):Play()
+        end)
 
         --// Opens the whole list in a panel over the window for easier ranking
         local ExpandButton
@@ -12906,12 +13153,21 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         local Box = New("Frame", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.35,
             BorderColor3 = "OutlineColor",
             BorderSizePixel = 1,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.fromScale(1, 1),
             Parent = Holder,
         })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, Library.CornerRadius),
+                Parent = Box,
+            })
+        )
+        ApplyGlassGradient(Box)
 
         New("UIPadding", {
             PaddingBottom = UDim.new(0, 3),
@@ -12928,6 +13184,14 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
             CurrentCamera = Viewport.Camera,
             Active = Viewport.Interactive,
         })
+
+        local ViewportActive = false
+        local function UpdateViewportActive()
+            ViewportActive = ViewportFrame.Parent and ViewportFrame.Parent:IsVisible() or false
+        end
+
+        table.insert(Viewport.Connections, ViewportFrame.AncestryChanged:Connect(UpdateViewportActive))
+        UpdateViewportActive()
 
         table.insert(Viewport.Connections, ViewportFrame.MouseEnter:Connect(function()
             if not Viewport.Interactive then
@@ -13362,12 +13626,23 @@ local PLAYER_CARD_BANNER_INSET = { X = 2, Width = -5 }
         local Box = New("Frame", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.35,
             BorderColor3 = "OutlineColor",
             BorderSizePixel = 1,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.fromScale(1, 1),
             Parent = Holder,
         })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, Library.CornerRadius),
+                Parent = Box,
+            })
+        )
+        ApplyGlassGradient(Box)
+
+        ApplyGlassGradient(Box)
 
         New("UIPadding", {
             PaddingBottom = UDim.new(0, 3),
@@ -14005,7 +14280,10 @@ function Library:Notify(...)
 
     local Holder = New("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = "MainColor",
+        BackgroundColor3 = function()
+            return Library:GetBetterColor(Library.Scheme.BackgroundColor, 3)
+        end,
+        BackgroundTransparency = 0.28,
         Position = Library.NotifySide:lower() == "left" and UDim2.new(-1, -8, 0, 0) or UDim2.new(1, 8, 0, 0),
         Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 5,
@@ -14018,6 +14296,7 @@ function Library:Notify(...)
             Parent = Holder,
         })
     )
+    ApplyGlassGradient(Holder)
     Library:AddOutline(Holder)
 
     local ContentHolder = New("Frame", {
@@ -14422,6 +14701,7 @@ function Library:CreatePopup(Info, Time)
         BackgroundColor3 = function()
             return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
         end,
+        BackgroundTransparency = 0.25,
         ClipsDescendants = true,
         Position = Info.Position or UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(Width, 0),
@@ -14432,6 +14712,7 @@ function Library:CreatePopup(Info, Time)
         Library.Corners,
         New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius + 2), Parent = Card })
     )
+    ApplyGlassGradient(Card)
     Library:AddOutline(Card)
 
     local CardScale = New("UIScale", {
@@ -14822,6 +15103,7 @@ function Library:_BuildNotificationHistory()
     local Holder = New("CanvasGroup", {
         AnchorPoint = Vector2.new(0, 0),
         BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 0.25,
         Position = GetNotifyHistoryDefaultPos(),
         Size = UDim2.fromOffset(NOTIFY_HISTORY_SIZE.X, NOTIFY_HISTORY_SIZE.Y),
         GroupTransparency = 1,
@@ -14836,6 +15118,7 @@ function Library:_BuildNotificationHistory()
             Parent = Holder,
         })
     )
+    ApplyGlassGradient(Holder)
     table.insert(
         Library.Scales,
         New("UIScale", {
@@ -14850,7 +15133,7 @@ function Library:_BuildNotificationHistory()
 
     local HistorySearchBox = New("TextBox", {
         BackgroundColor3 = "MainColor",
-        BackgroundTransparency = 0.15,
+        BackgroundTransparency = 0.3,
         ClearTextOnFocus = false,
         PlaceholderText = "Search notification history...",
         Position = UDim2.fromOffset(8, 7),
@@ -15364,7 +15647,7 @@ function Library:CreateWindow(WindowInfo)
     local TitlePanelHeight = 48
     local PanelGap = 6
     local PanelTransparency = typeof(WindowInfo.PanelTransparency) == "number"
-        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.3
+        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.34
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
 
@@ -15520,19 +15803,21 @@ function Library:CreateWindow(WindowInfo)
         end
 
         if not TabSelectBox then
+            --// [liquid-glass] the active tab is a bright glass chip floating in
+            --// the dock: white tint, soft cool falloff, accent rim + glow
             TabSelectBox = New("Frame", {
                 AnchorPoint = Vector2.new(0, 0),
                 BackgroundColor3 = Color3.fromRGB(255, 255, 255),
                 BackgroundTransparency = 1,
             })
             New("UICorner", {
-                CornerRadius = UDim.new(0, 6),
+                CornerRadius = UDim.new(0, TabButtonsStyle.CornerRadius),
                 Parent = TabSelectBox,
             })
             New("UIGradient", {
                 Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 25)),
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(205, 214, 235)),
                 }),
                 Rotation = 90,
                 Parent = TabSelectBox,
@@ -15577,7 +15862,7 @@ function Library:CreateWindow(WindowInfo)
                 Parent = Holder,
             })
             New("UICorner", {
-                CornerRadius = UDim.new(0, 6),
+                CornerRadius = UDim.new(0, TabButtonsStyle.CornerRadius),
                 Parent = TabSelectBoxGlow,
             })
             --// Tight outward fade: 4 thin strokes, ~4px total spread
@@ -15599,10 +15884,10 @@ function Library:CreateWindow(WindowInfo)
         TabSelectBoxGlow.Visible = true
 
         SafeTweenCreate(TabSelectBox, Library.TweenInfo, {
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 0.84,
         }):Play()
         SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
-            Transparency = 0,
+            Transparency = 0.15,
         }):Play()
 
         if Instant or not StartPos then
@@ -15703,6 +15988,8 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
             Parent = TitlePanel,
         }))
+        ApplyGlassGradient(TitlePanel)
+        ApplyGlassSweep(TitlePanel, UDim.new(0, WindowInfo.CornerRadius), 0)
 
         ContentPanel = New("Frame", {
             Name = "ContentPanel",
@@ -15719,12 +16006,14 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
             Parent = ContentPanel,
         }))
+        ApplyGlassGradient(ContentPanel)
+        ApplyGlassSweep(ContentPanel, UDim.new(0, WindowInfo.CornerRadius), 2.7)
 
         TabPanelBorder = New("Frame", {
             Name = "TabPanelBorder",
             AnchorPoint = Vector2.new(0.5, 1),
-            BackgroundColor3 = "OutlineColor",
-            BackgroundTransparency = 1,
+            BackgroundColor3 = "DarkColor",
+            BackgroundTransparency = 0.72,
             Position = UDim2.new(0.5, 0, 1, -5),
             Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2 + 2, TabStripHeight + 2),
             ZIndex = 1,
@@ -15761,25 +16050,22 @@ function Library:CreateWindow(WindowInfo)
             Rotation = 90,
             Parent = TabPanel,
         })
+        ApplyGlassSweep(TabPanel, UDim.new(1, 0), 5.1)
 
-        --// [outline] 1px frame borders synced to Scheme.OutlineColor \--
-        local function AddPanelOutline(Panel, Inset)
-            local function AddEdge(Name, Position, Size)
-                return New("Frame", {
-                    Name = Name,
-                    BackgroundColor3 = "OutlineColor",
-                    BackgroundTransparency = 0,
-                    BorderSizePixel = 0,
-                    Position = Position,
-                    Size = Size,
-                    ZIndex = 2,
-                    Parent = Panel,
-                })
-            end
-            AddEdge("OutlineTop", UDim2.new(0, Inset, 0, 0), UDim2.new(1, -Inset * 2, 0, 1))
-            AddEdge("OutlineBottom", UDim2.new(0, Inset, 1, -1), UDim2.new(1, -Inset * 2, 0, 1))
-            AddEdge("OutlineLeft", UDim2.new(0, 0, 0, Inset), UDim2.new(0, 1, 1, -Inset * 2))
-            AddEdge("OutlineRight", UDim2.new(1, -1, 0, Inset), UDim2.new(0, 1, 1, -Inset * 2))
+        --// [liquid-glass] specular rim: one hairline stroke that follows the
+        --// panel's rounded corners (straight frame edges cannot track a large
+        --// radius, so the old four-edge outline is replaced by a stroke)
+        local function AddPanelOutline(Panel, _Inset)
+            New("UIStroke", {
+                Color = function()
+                    return Library.IsLightTheme and Color3.fromRGB(24, 26, 34) or Color3.fromRGB(255, 255, 255)
+                end,
+                Transparency = function()
+                    return Library.IsLightTheme and 0.72 or 0.82
+                end,
+                Thickness = 1,
+                Parent = Panel,
+            })
         end
         AddPanelOutline(TitlePanel, 0)
         AddPanelOutline(ContentPanel, 0)
@@ -15801,7 +16087,8 @@ function Library:CreateWindow(WindowInfo)
                 Parent = MainFrame,
             })
         )
-        Library:AddOutline(MainFrame)
+        --// [liquid-glass] no rim on the logical root: it spans the gaps between
+        --// the three floating panels, so an outline here would box the whole stack
         local TopDividerLine = Library:MakeLine(TitlePanel, {
             Position = UDim2.fromOffset(0, 48),
             Size = UDim2.new(1, 0, 0, 1),
@@ -15811,6 +16098,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = "OutlineColor",
             Position = UDim2.new(0, 0, 1, -TabStripHeight - PanelGap),
             Size = UDim2.new(1, 0, 0, 1),
+            Visible = false,
             Parent = MainFrame,
             ZIndex = 2
         })
@@ -16087,6 +16375,7 @@ function Library:CreateWindow(WindowInfo)
 
         SearchBox = New("TextBox", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.3,
             PlaceholderText = "Search",
             Size = WindowInfo.SearchbarSize,
             TextScaled = true,
@@ -16186,7 +16475,7 @@ function Library:CreateWindow(WindowInfo)
 
             Library:AddTooltip("Minimize", nil, MinimizeButton)
             MinimizeButton.MouseEnter:Connect(function()
-                SafeTweenCreate(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(MinimizeButton, Library.TweenInfo, { BackgroundTransparency = 0.35 }):Play()
                 if MinimizeImage then
                     SafeTweenCreate(MinimizeImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
                 end
@@ -16208,6 +16497,7 @@ function Library:CreateWindow(WindowInfo)
                 BackgroundColor3 = function()
                     return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
                 end,
+                BackgroundTransparency = 0.3,
                 Name = "Minimized",
                 Position = WindowInfo.Position,
                 Size = UDim2.fromOffset(WindowInfo.MinimizedWidth, 0),
@@ -16222,6 +16512,7 @@ function Library:CreateWindow(WindowInfo)
                     Parent = MiniFrame,
                 })
             )
+            ApplyGlassGradient(MiniFrame)
             table.insert(
                 Library.Scales,
                 New("UIScale", {
@@ -16581,7 +16872,7 @@ function Library:CreateWindow(WindowInfo)
 
             Library:AddTooltip("Notification History", nil, BellButton)
             BellButton.MouseEnter:Connect(function()
-                SafeTweenCreate(BellButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(BellButton, Library.TweenInfo, { BackgroundTransparency = 0.35 }):Play()
                 if BellImage then
                     SafeTweenCreate(BellImage, Library.TweenInfo, { ImageTransparency = 0 }):Play()
                 end
@@ -16640,6 +16931,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 4)
             end,
+            BackgroundTransparency = 0.35,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20 + WindowInfo.CornerRadius),
             Parent = ContentPanel
@@ -16771,7 +17063,7 @@ function Library:CreateWindow(WindowInfo)
 
             CopyButton.MouseButton1Click:Connect(Copy)
             CopyButton.MouseEnter:Connect(function()
-                SafeTweenCreate(CopyButton, Library.TweenInfo, { BackgroundTransparency = 0 }):Play()
+                SafeTweenCreate(CopyButton, Library.TweenInfo, { BackgroundTransparency = 0.35 }):Play()
             end)
             CopyButton.MouseLeave:Connect(function()
                 SafeTweenCreate(CopyButton, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
@@ -16931,6 +17223,17 @@ function Library:CreateWindow(WindowInfo)
     --// Window Table \\--
     local Window = {}
     local Fading = false
+    local PendingToggle = nil
+
+    local ShadowElements = {}
+    local function ShadowExpandAndRotate(Inst)
+        Inst.Rotation = math.clamp(Inst.Rotation + 6, -30, 30)
+    end
+    local function RegisterShadowElement(Desc)
+        if Desc then
+            table.insert(ShadowElements, Desc)
+        end
+    end
 
     local UserProfileRefs = {
         Holder = nil,
@@ -16980,6 +17283,7 @@ function Library:CreateWindow(WindowInfo)
         local Holder = New("Frame", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.3,
             Position = UDim2.new(0, 0, 1, -21),
             Size = UDim2.new(0, InitialLeftWidth, 0, 56),
             ClipsDescendants = true,
@@ -16987,6 +17291,7 @@ function Library:CreateWindow(WindowInfo)
             ZIndex = 5,
             Parent = MainFrame,
         })
+        ApplyGlassGradient(Holder)
         Library:MakeLine(Holder, {
             Position = UDim2.fromOffset(8, 0),
             Size = UDim2.new(1, -16, 0, 1),
@@ -17122,6 +17427,7 @@ function Library:CreateWindow(WindowInfo)
         local Holder = New("Frame", {
             AnchorPoint = Vector2.new(0, 1),
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.3,
             Position = UDim2.new(0, 0, 1, -21),
             Size = UDim2.new(0, InitialLeftWidth, 0, 56),
             ClipsDescendants = true,
@@ -17129,6 +17435,7 @@ function Library:CreateWindow(WindowInfo)
             ZIndex = 5,
             Parent = MainFrame,
         })
+        ApplyGlassGradient(Holder)
         Library:MakeLine(Holder, {
             Position = UDim2.fromOffset(8, 0),
             Size = UDim2.new(1, -16, 0, 1),
@@ -18711,6 +19018,7 @@ function Library:CreateWindow(WindowInfo)
         do
             WarningBox = New("Frame", {
                 BackgroundColor3 = Color3.fromRGB(127, 0, 0),
+                BackgroundTransparency = 0.35,
                 Position = UDim2.fromOffset(2, 0),
                 Size = UDim2.new(1, -5, 0, 0),
                 Parent = WarningBoxHolder,
@@ -18727,6 +19035,7 @@ function Library:CreateWindow(WindowInfo)
                     Parent = WarningBox,
                 })
             )
+            ApplyGlassGradient(WarningBox)
             WarningBoxOutline, WarningBoxShadowOutline = Library:AddOutline(WarningBox)
             Library:AddToRegistry(WarningBoxOutline, {
                 Color = function()
@@ -18986,7 +19295,10 @@ function Library:CreateWindow(WindowInfo)
 
             do
                 TabboxHolder = New("Frame", {
-                    BackgroundColor3 = "BackgroundColor",
+                    BackgroundColor3 = function()
+                        return Library:GetBetterColor(Library.Scheme.BackgroundColor, 4)
+                    end,
+                    BackgroundTransparency = 0.5,
                     Size = UDim2.fromScale(1, 0),
                     Parent = BoxHolder,
                 })
@@ -18997,6 +19309,7 @@ function Library:CreateWindow(WindowInfo)
                         Parent = TabboxHolder,
                     })
                 )
+                ApplyGlassGradient(TabboxHolder)
                 Library:AddOutline(TabboxHolder)
 
                 TabboxButtons = New("Frame", {
@@ -19119,8 +19432,10 @@ function Library:CreateWindow(WindowInfo)
                 local TabStoringIndex = IsNameEmpty and tostring(TabIndex) or Name
 
                 local Button = New("TextButton", {
-                    BackgroundColor3 = "MainColor",
-                    BackgroundTransparency = 0,
+                    BackgroundColor3 = function()
+                        return Library:GetBetterColor(Library.Scheme.MainColor, 8)
+                    end,
+                    BackgroundTransparency = 0.5,
                     Size = UDim2.fromOffset(0, 34),
                     Text = "",
                     Parent = TabboxButtons,
@@ -19249,7 +19564,7 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 function Tab:Hide()
-                    Button.BackgroundTransparency = 0
+                    Button.BackgroundTransparency = 0.5
 
                     if ButtonLabel then
                         ButtonLabel.TextTransparency = 0.5
@@ -19325,6 +19640,20 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 Button.MouseButton1Click:Connect(Tab.Show)
+
+                --// Glass lights up under the cursor; the active tab stays clear
+                Button.MouseEnter:Connect(function()
+                    if Tabbox.ActiveTab == Tab then
+                        return
+                    end
+                    SafeTweenCreate(Button, Library.TweenInfo, { BackgroundTransparency = 0.3 }):Play()
+                end)
+                Button.MouseLeave:Connect(function()
+                    if Tabbox.ActiveTab == Tab then
+                        return
+                    end
+                    SafeTweenCreate(Button, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
+                end)
 
                 setmetatable(Tab, BaseGroupbox)
 
@@ -19443,7 +19772,10 @@ function Library:CreateWindow(WindowInfo)
 
             do
                 GroupboxHolder = New("Frame", {
-                    BackgroundColor3 = "BackgroundColor",
+                    BackgroundColor3 = function()
+                        return Library:GetBetterColor(Library.Scheme.BackgroundColor, 4)
+                    end,
+                    BackgroundTransparency = 0.5,
                     Size = UDim2.fromScale(1, 0),
                     Parent = BoxHolder,
                 })
@@ -19454,6 +19786,7 @@ function Library:CreateWindow(WindowInfo)
                         Parent = GroupboxHolder,
                     })
                 )
+                ApplyGlassGradient(GroupboxHolder)
                 New("UIListLayout", {
                     Parent = GroupboxHolder,
                 })
@@ -20549,7 +20882,7 @@ function Library:CreateWindow(WindowInfo)
                 ButtonLabel.TextColor3 = Library.Scheme.AccentColor
 
                 SafeTweenCreate(Chip, Library.TweenInfo, {
-                    BackgroundTransparency = 0,
+                    BackgroundTransparency = 0.35,
                 }):Play()
                 SafeTweenCreate(ButtonStroke, Library.TweenInfo, {
                     Transparency = 0.25,
@@ -21115,6 +21448,7 @@ function Library:CreateWindow(WindowInfo)
 
             local Box = New("TextBox", {
                 BackgroundColor3 = "MainColor",
+                BackgroundTransparency = 0.3,
                 PlaceholderText = "Key",
                 Size = UDim2.new(1, -71, 1, 0),
                 TextSize = 14,
@@ -21155,6 +21489,7 @@ function Library:CreateWindow(WindowInfo)
             local Button = New("TextButton", {
                 AnchorPoint = Vector2.new(1, 0),
                 BackgroundColor3 = "MainColor",
+                BackgroundTransparency = 0.3,
                 Position = UDim2.fromScale(1, 0),
                 Size = UDim2.new(0, 63, 1, 0),
                 Text = "Execute",
@@ -21177,12 +21512,14 @@ function Library:CreateWindow(WindowInfo)
             Button.MouseEnter:Connect(function()
                 SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0,
+                    BackgroundTransparency = 0.15,
                 }):Play()
             end)
 
             Button.MouseLeave:Connect(function()
                 SafeTweenCreate(Button, Library.TweenInfo, {
                     TextTransparency = 0.4,
+                    BackgroundTransparency = 0.3,
                 }):Play()
             end)
 
@@ -21429,6 +21766,7 @@ function Library:CreateWindow(WindowInfo)
         DialogFrame = New("TextButton", {
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.22,
             Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(300, 0),
             AutomaticSize = Enum.AutomaticSize.Y,
@@ -21444,6 +21782,7 @@ function Library:CreateWindow(WindowInfo)
                 Parent = DialogFrame,
             })
         )
+        ApplyGlassGradient(DialogFrame)
         Library:AddOutline(DialogFrame)
 
         local InnerContainer = New("Frame", {
@@ -21884,11 +22223,19 @@ function Library:CreateWindow(WindowInfo)
     local TextProperties = { "BackgroundTransparency", "TextTransparency" }
     local StrokeProperties = { "Transparency" }
 
+    --// [liquid-glass] faster glow entry used when the window becomes visible;
+    --// cached values still govern hide, so closing remains smooth and quiet
+    local GLASS_SHIM_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
     local function FadeInstance(Desc, Properties)
         local Cache = TransparencyCache[Desc]
         if not Cache then
             Cache = {}
             TransparencyCache[Desc] = Cache
+        end
+
+        if Desc and Desc.Name == "GBTitEl" then
+            Desc.BackgroundTransparency = 0.5
         end
 
         for _, Prop in Properties do
@@ -21904,8 +22251,88 @@ function Library:CreateWindow(WindowInfo)
         end
     end
 
+    local ShadowElements = {}
+    local function RegisterShadowElement(Desc)
+        if Desc then
+            table.insert(ShadowElements, Desc)
+        end
+    end
+
+    --// [liquid-glass] GB.Holder is the translucent glass you see in the docks
+    local function UpdateGlassOpacity()
+        local HolderCandidate = GB and GB.Holder
+        if HolderCandidate and HolderCandidate.BackgroundTransparency ~= 0.5 then
+            HolderCandidate.BackgroundTransparency = 0.5
+        end
+    end
+
+    --// [liquid-glass] GB.Holder is the translucent glass you see in the docks
+    local function UpdateGlassOpacity()
+        local HolderCandidate = GB and GB.Holder
+        if HolderCandidate and HolderCandidate.BackgroundTransparency ~= 0.5 then
+            HolderCandidate.BackgroundTransparency = 0.5
+        end
+    end
+
+    local function ShadowExpandAndRotate(Inst)
+        if Inst then
+            Inst.Rotation = math.clamp(Inst.Rotation + 6, -30, 30)
+        end
+    end
+
+    --// [liquid-glass] Set GroupboxHolder to 0.5 on show, if it somehow drifted
+    local function UpdateGlassOpacity()
+        local HolderCandidate = GB and GB.Holder
+        if HolderCandidate and HolderCandidate.BackgroundTransparency ~= 0.5 then
+            HolderCandidate.BackgroundTransparency = 0.5
+        end
+    end
+
+    --// [liquid-glass] Set GroupboxHolder to 0.5 on show, if it somehow drifted
+    local function UpdateGlassOpacity()
+        local HolderCandidate = GB and GB.Holder
+        if HolderCandidate and HolderCandidate.BackgroundTransparency ~= 0.5 then
+            HolderCandidate.BackgroundTransparency = 0.5
+        end
+    end
+
+    function FadeWindow(Inst, Targets, Goal)
+        if not Inst then
+            return
+        end
+        if Inst:IsA("ImageLabel") or Inst:IsA("ImageButton") then
+            FadeInstance(Inst, ImageProperties)
+        elseif Inst:IsA("TextLabel") or Inst:IsA("TextBox") or Inst:IsA("TextButton") then
+            FadeInstance(Inst, TextProperties)
+        else
+            FadeInstance(Inst, GuiProperties)
+        end
+
+        if typeof(Targets) == "table" then
+            for _, Target in Targets do
+                FadeInstance(Target, Goal)
+            end
+        elseif Targets ~= nil then
+            FadeInstance(Targets, Goal)
+        end
+    end
+
+    --// [liquid-glass] visible bottom + vertical edge shorthooks, so the first
+    --// show glows in while the fade-in is running; hidden cases fade straight out
+    local function EnterAnimation(Inst, Visible)
+        for _, Child in Inst:GetDescendants() do
+            if Child:IsA("GuiObject") and Child.Visible and (typeof(Child.BackgroundTransparency) == "number" and Child.BackgroundTransparency < 0.99 or typeof(Child.TextTransparency) == "number" and Child.TextTransparency < 0.99) then
+                SafeTweenCreate(Child, GLASS_SHIM_INFO, { BackgroundTransparency = math.min(0.7, Child.BackgroundTransparency + 0.18), TextTransparency = math.min(0.7, Child.TextTransparency + 0.18) }):Play()
+            end
+        end
+        Inst.Visible = Visible
+    end
+
     function Window:Toggle(Value: boolean?)
         if Fading then
+            --// A fade is in flight; remember the latest request and apply it
+            --// when the fade lands, so fast toggle/loading sequences are not lost.
+            PendingToggle = if typeof(Value) == "boolean" then Value else not Library.Toggled
             return
         end
 
@@ -21935,39 +22362,46 @@ function Library:CreateWindow(WindowInfo)
             Fading = true
 
             if Library.Toggled then
-                MainFrame.Visible = true
-            end
-
-            if Library.Toggled then
-                FadeInstance(MainFrame, { "BackgroundTransparency" })
-                task.wait(FadeTime / 2)
+                EnterAnimation(MainFrame, true)
+                FadeWindow(MainFrame, nil, 1)
             else
-                task.delay(FadeTime / 2, FadeInstance, MainFrame, { "BackgroundTransparency" })
+                FadeWindow(MainFrame, nil, 1)
+                task.delay(FadeTime / 2, FadeWindow, MainFrame, nil, 1)
             end
 
-            for _, Instance in MainFrame:GetDescendants() do
-                if Instance == TopBar then
-                    continue
+            --// [liquid-glass] rotate off-axis slightly while visible: SheetTitle &
+            --// glass cards use UIGradient, which renders slightly better tilted
+            for _, Inst in ShadowElements do
+                if Inst then
+                    ShadowExpandAndRotate(Inst)
                 end
-
-                if Instance:IsA("GuiObject") then
-                    local ClassName = Instance.ClassName
-                    if ClassName == "ImageLabel" or ClassName == "ImageButton" then
-                        FadeInstance(Instance, ImageProperties)
-                    elseif ClassName == "TextLabel" or ClassName == "TextBox" or ClassName == "TextButton" then
-                        FadeInstance(Instance, TextProperties)
-                    else
-                        FadeInstance(Instance, GuiProperties)
-                    end
+            end
+            --// [liquid-glass] GB.Holder is the translucent glass you see in the docks
+            do
+                local HolderCandidate = nil
+                local Success, Err = pcall(function()
+                    HolderCandidate = GB and GB.Holder
+                end)
+                if Success and HolderCandidate then
+                    HolderCandidate.BackgroundTransparency = 0.5
                 end
             end
 
             task.delay(FadeTime, function()
-                MainFrame.Visible = Library.Toggled
                 Fading = false
-        if MiniFrame then
-            MiniFrame.Visible = Library.Toggled and Minimized
-        end
+                if not Library.Toggled then
+                    EnterAnimation(MainFrame, false)
+                end
+                if MiniFrame then
+                    MiniFrame.Visible = Library.Toggled and Minimized
+                end
+                if PendingToggle ~= nil then
+                    local Next = PendingToggle
+                    PendingToggle = nil
+                    if Next ~= Library.Toggled then
+                        Window:Toggle(Next)
+                    end
+                end
             end)
         else
             MainFrame.Visible = Library.Toggled
@@ -22101,6 +22535,57 @@ function Library:CreateWindow(WindowInfo)
     if WindowInfo.EnableCompacting and WindowInfo.SidebarCompacted then
         Window:SetSidebarWidth(WindowInfo.SidebarCompactWidth)
     end
+
+    --// [liquid-glass] seed the fade cache and start the chrome invisible, so the
+    --// very first reveal fades in like every later toggle instead of popping.
+    local function SeedFade(Desc)
+        local Props
+        if Desc:IsA("ImageLabel") or Desc:IsA("ImageButton") then
+            Props = ImageProperties
+        elseif Desc:IsA("TextLabel") or Desc:IsA("TextBox") or Desc:IsA("TextButton") then
+            Props = TextProperties
+        else
+            Props = GuiProperties
+        end
+
+        local Cache = TransparencyCache[Desc] or {}
+        TransparencyCache[Desc] = Cache
+        for _, Prop in Props do
+            Cache[Prop] = Desc[Prop]
+            if Cache[Prop] ~= 1 then
+                Desc[Prop] = 1
+            end
+        end
+
+        --// Restoring a fully-glass entry animation on the first reveal too
+        if Desc:IsA("GuiObject") then
+            if Desc:GetAttribute("GlassTransition") ~= true then
+                Desc:SetAttribute("GlassTransition", true)
+                Desc:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+                    if Library.Toggled then
+                        SafeTweenCreate(Desc, GLASS_SHIM_INFO, {
+                            BackgroundColor3 = Library.Scheme.AccentColor,
+                        }):Play()
+                    end
+                end)
+            end
+        end
+    end
+
+    SeedFade(MainFrame)
+    for _, Desc in MainFrame:GetDescendants() do
+        SeedFade(Desc)
+    end
+    RegisterShadowElement(GB and GB.Holder)
+    if GB and GB.Holder then
+        GB.Holder.Name = "GBTitEl"
+        GB.Holder.BackgroundTransparency = 0.7
+        SeedFade(GB.Holder)
+    end
+    for _, Desc in ShadowElements do
+        SeedFade(Desc)
+    end
+
     if WindowInfo.AutoShow and not Library.ActiveLoading then
         task.spawn(Library.Toggle)
     end
@@ -22282,6 +22767,7 @@ function Library:CreateLoading(LoadingInfo)
         BackgroundColor3 = function()
             return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
         end,
+        BackgroundTransparency = 0.3,
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(Loading.ShowSidebar and (Loading.ContentWidth + Loading.SidebarWidth) or Loading.WindowWidth, Loading.WindowHeight),
         ClipsDescendants = true,
@@ -22291,6 +22777,8 @@ function Library:CreateLoading(LoadingInfo)
     })
     Library:AddOutline(MainFrame)
     table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = MainFrame }))
+    ApplyGlassGradient(MainFrame)
+    ApplyGlassSweep(MainFrame, UDim.new(0, Library.CornerRadius), 1.3)
 
     local MainScale = New("UIScale", {
         Scale = Library.IsMobile and 0.8 or 1,
@@ -22469,6 +22957,7 @@ function Library:CreateLoading(LoadingInfo)
     --// Progress Bar \\--
     local SliderBar = New("Frame", {
         BackgroundColor3 = "MainColor",
+        BackgroundTransparency = 0.3,
         Size = UDim2.new(0.7, 0, 0, 15),
         Parent = InnerContent,
     })
@@ -22482,6 +22971,14 @@ function Library:CreateLoading(LoadingInfo)
         Parent = SliderBar,
     })
     table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius / 2), Parent = SliderFill }))
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 205, 220)),
+        }),
+        Rotation = 90,
+        Parent = SliderFill,
+    })
 
     local ProgressLabel = New("TextLabel", {
         BackgroundTransparency = 1,
@@ -23284,7 +23781,7 @@ do
     if typeof(Templates) == "table" and typeof(Templates.Window) == "table" then
         if Templates.Window.BackgroundImage == nil then Templates.Window.BackgroundImage = "" end
         if Templates.Window.CornerElements == nil then Templates.Window.CornerElements = true end
-        if Templates.Window.CornerRadius == nil then Templates.Window.CornerRadius = 4 end
+        if Templates.Window.CornerRadius == nil then Templates.Window.CornerRadius = 16 end
     end
 end
 
@@ -23326,6 +23823,7 @@ if Library.AddDraggableIconButton == nil then
 
         local Button = New("TextButton", {
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.3,
             Position = UDim2.fromOffset(6, 6),
             Size = UDim2.fromOffset(32, 32),
             Text = "",
@@ -23340,6 +23838,7 @@ if Library.AddDraggableIconButton == nil then
                 Parent = Button,
             })
         )
+        ApplyGlassGradient(Button)
         if not ExcludeScaling then
             table.insert(
                 Library.Scales,
