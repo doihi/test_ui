@@ -2282,7 +2282,7 @@ end
 
 local OnlineFetchIcons, OnlineIcons = pcall(function()
     return (loadstring(
-        game:HttpGet("https://raw.githubusercontent.com/notpoiu/lucide-roblox-direct/refs/heads/main/source.lua")
+        game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/refs/heads/main/source.lua")
     ) :: () -> IconModule)()
 end)
 if OnlineFetchIcons and OnlineIcons then
@@ -15694,7 +15694,10 @@ function Library:CreateWindow(WindowInfo)
         Radius = 24,
         UseAccent = true,
     }
-    local ShadowImage
+    --// One shadow per outlined panel; nothing shadowed on the gaps between panels.
+    local ShadowImages = {}
+    local ShadowTargets = {}
+    local ShadowRenderStep
     local ShadowConfig = {
         Enabled = WindowInfo.Shadow ~= false,
         Transparency = typeof(WindowInfo.ShadowTransparency) == "number" and WindowInfo.ShadowTransparency or 0.55,
@@ -16066,6 +16069,8 @@ function Library:CreateWindow(WindowInfo)
                 Thickness = 1,
                 Parent = Panel,
             })
+            --// Drop shadow is applied only to panels that have an outline.
+            table.insert(ShadowTargets, Panel)
         end
         AddPanelOutline(TitlePanel, 0)
         AddPanelOutline(ContentPanel, 0)
@@ -18159,54 +18164,68 @@ function Library:CreateWindow(WindowInfo)
         return Window
     end
 
-    --// Soft drop shadow (separate from accent glow)
+    --// Soft drop shadow (separate from accent glow). One shadow image per
+    --// outlined panel; gaps between panels are never shadowed.
     local function EnsureShadow()
-        if ShadowImage then
+        if next(ShadowImages) then
             return
         end
 
         local ShadowColorValue = GetSchemeValue(ShadowConfig.Color) or Library.Scheme.DarkColor
 
-        ShadowImage = New("ImageLabel", {
-            Active = false,
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://6014261993",
-            ImageColor3 = ShadowColorValue,
-            ImageTransparency = ShadowConfig.Transparency,
-            ScaleType = Enum.ScaleType.Slice,
-            SliceCenter = Rect.new(49, 49, 450, 450),
-            Visible = false,
-            ZIndex = -1,
-            Parent = ScreenGui,
-        })
+        for _, Target in ShadowTargets do
+            if Target then
+                local Shadow = New("ImageLabel", {
+                    Active = false,
+                    BackgroundTransparency = 1,
+                    Image = "rbxassetid://6014261993",
+                    ImageColor3 = ShadowColorValue,
+                    ImageTransparency = ShadowConfig.Transparency,
+                    ScaleType = Enum.ScaleType.Slice,
+                    SliceCenter = Rect.new(49, 49, 450, 450),
+                    Visible = false,
+                    ZIndex = -1,
+                    Parent = ScreenGui,
+                })
 
-        if typeof(ShadowConfig.Color) == "string" then
-            Library:AddToRegistry(ShadowImage, { ImageColor3 = ShadowConfig.Color })
+                if typeof(ShadowConfig.Color) == "string" then
+                    Library:AddToRegistry(Shadow, { ImageColor3 = ShadowConfig.Color })
+                end
+
+                ShadowImages[Target] = Shadow
+            end
         end
 
-        Library:GiveSignal(RunService.RenderStepped:Connect(function()
-            if not (ShadowImage and MainFrame) then
-                return
-            end
+        if not ShadowRenderStep then
+            ShadowRenderStep = RunService.RenderStepped:Connect(function()
+                if not MainFrame then
+                    return
+                end
 
-            local Target = if (MiniFrame and MiniFrame.Visible) then MiniFrame else MainFrame
-            local ShouldShow = ShadowConfig.Enabled and Target.Visible and Library.Toggled
-            ShadowImage.Visible = ShouldShow
-            if not ShouldShow then
-                return
-            end
+                for Target, Shadow in ShadowImages do
+                    local ShouldShow = ShadowConfig.Enabled
+                        and Target.Visible
+                        and MainFrame.Visible
+                        and Library.Toggled
+                    Shadow.Visible = ShouldShow
+                    if not ShouldShow then
+                        continue
+                    end
 
-            local Size = ShadowConfig.Size
-            local Offset = ShadowConfig.Offset
-            ShadowImage.Position = UDim2.fromOffset(
-                Target.AbsolutePosition.X - Size + Offset.X,
-                Target.AbsolutePosition.Y - Size + Offset.Y
-            )
-            ShadowImage.Size = UDim2.fromOffset(
-                Target.AbsoluteSize.X + Size * 2,
-                Target.AbsoluteSize.Y + Size * 2
-            )
-        end))
+                    local Size = ShadowConfig.Size
+                    local Offset = ShadowConfig.Offset
+                    Shadow.Position = UDim2.fromOffset(
+                        Target.AbsolutePosition.X - Size + Offset.X,
+                        Target.AbsolutePosition.Y - Size + Offset.Y
+                    )
+                    Shadow.Size = UDim2.fromOffset(
+                        Target.AbsoluteSize.X + Size * 2,
+                        Target.AbsoluteSize.Y + Size * 2
+                    )
+                end
+            end)
+            Library:GiveSignal(ShadowRenderStep)
+        end
     end
 
     function Window:SetShadow(Enabled: boolean, Options: { [string]: any }?)
@@ -18223,15 +18242,15 @@ function Library:CreateWindow(WindowInfo)
         end
         if Options.Color ~= nil then
             ShadowConfig.Color = Options.Color
-            if ShadowImage then
-                local Resolved = typeof(Options.Color) == "Color3" and Options.Color
-                    or GetSchemeValue(Options.Color)
-                    or Library.Scheme.DarkColor
-                ShadowImage.ImageColor3 = Resolved
+            local Resolved = typeof(Options.Color) == "Color3" and Options.Color
+                or GetSchemeValue(Options.Color)
+                or Library.Scheme.DarkColor
+            for _, Shadow in ShadowImages do
+                Shadow.ImageColor3 = Resolved
                 if typeof(Options.Color) == "string" then
-                    Library:AddToRegistry(ShadowImage, { ImageColor3 = Options.Color })
+                    Library:AddToRegistry(Shadow, { ImageColor3 = Options.Color })
                 else
-                    Library:RemoveFromRegistry(ShadowImage)
+                    Library:RemoveFromRegistry(Shadow)
                 end
             end
         end
@@ -18241,11 +18260,13 @@ function Library:CreateWindow(WindowInfo)
 
         if ShadowConfig.Enabled then
             EnsureShadow()
-            if ShadowImage then
-                ShadowImage.ImageTransparency = ShadowConfig.Transparency
+            for _, Shadow in ShadowImages do
+                Shadow.ImageTransparency = ShadowConfig.Transparency
             end
-        elseif ShadowImage then
-            ShadowImage.Visible = false
+        else
+            for _, Shadow in ShadowImages do
+                Shadow.Visible = false
+            end
         end
 
         return Window
@@ -22228,13 +22249,17 @@ function Library:CreateWindow(WindowInfo)
     local GLASS_SHIM_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 
     local function FadeInstance(Desc, Properties)
+        if typeof(Desc) ~= "Instance" or not Desc:IsA("GuiObject") or type(Properties) ~= "table" then
+            return
+        end
+
         local Cache = TransparencyCache[Desc]
         if not Cache then
             Cache = {}
             TransparencyCache[Desc] = Cache
         end
 
-        if Desc and Desc.Name == "GBTitEl" then
+        if Desc.Name == "GBTitEl" then
             Desc.BackgroundTransparency = 0.5
         end
 
@@ -22296,16 +22321,29 @@ function Library:CreateWindow(WindowInfo)
         end
     end
 
+    local function FadeOne(Target)
+        if not Target or not Target:IsA("GuiObject") then
+            return
+        end
+        if Target:IsA("ImageLabel") or Target:IsA("ImageButton") then
+            FadeInstance(Target, ImageProperties)
+        elseif Target:IsA("TextLabel") or Target:IsA("TextBox") or Target:IsA("TextButton") then
+            FadeInstance(Target, TextProperties)
+        else
+            FadeInstance(Target, GuiProperties)
+        end
+    end
+
     function FadeWindow(Inst, Targets, Goal)
         if not Inst then
             return
         end
-        if Inst:IsA("ImageLabel") or Inst:IsA("ImageButton") then
-            FadeInstance(Inst, ImageProperties)
-        elseif Inst:IsA("TextLabel") or Inst:IsA("TextBox") or Inst:IsA("TextButton") then
-            FadeInstance(Inst, TextProperties)
-        else
-            FadeInstance(Inst, GuiProperties)
+
+        --// Restore every GuiObject, not just the root. SeedFade hides children
+        --// too, so title panel icons/text/frames need to be faded back in.
+        FadeOne(Inst)
+        for _, Child in Inst:GetDescendants() do
+            FadeOne(Child)
         end
 
         if typeof(Targets) == "table" then
