@@ -16016,7 +16016,7 @@ function Library:CreateWindow(WindowInfo)
             Name = "TabPanelBorder",
             AnchorPoint = Vector2.new(0.5, 1),
             BackgroundColor3 = "DarkColor",
-            BackgroundTransparency = 0.72,
+            BackgroundTransparency = 0.82,
             Position = UDim2.new(0.5, 0, 1, -5),
             Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2 + 2, TabStripHeight + 2),
             ZIndex = 1,
@@ -16031,10 +16031,11 @@ function Library:CreateWindow(WindowInfo)
             Name = "TabPanel",
             AnchorPoint = Vector2.new(0.5, 1),
             BackgroundColor3 = "SecondaryAccentColor",
-            BackgroundTransparency = PanelTransparency,
+            --// Bottom tab strip is intentionally more translucent than the other panels.
+            BackgroundTransparency = math.clamp(PanelTransparency + 0.22, 0, 1),
             Position = UDim2.new(0.5, 0, 1, -6),
             Size = UDim2.fromOffset(5 * 56 + 4 * TabButtonsStyle.Gap + TabButtonsStyle.Padding * 2, TabStripHeight),
-            ZIndex = 1,
+            ZIndex = 2,
             Parent = MainFrame,
         })
         table.insert(Library.PillCorners, New("UICorner", {
@@ -16064,7 +16065,7 @@ function Library:CreateWindow(WindowInfo)
                     return Library.IsLightTheme and Color3.fromRGB(24, 26, 34) or Color3.fromRGB(255, 255, 255)
                 end,
                 Transparency = function()
-                    return Library.IsLightTheme and 0.72 or 0.82
+                    return Library.IsLightTheme and 0.55 or 0.45
                 end,
                 Thickness = 1,
                 Parent = Panel,
@@ -18722,7 +18723,8 @@ function Library:CreateWindow(WindowInfo)
         Value = math.clamp(Value, 0, 1)
         TitlePanel.BackgroundTransparency = Value
         ContentPanel.BackgroundTransparency = Value
-        TabPanel.BackgroundTransparency = Value
+        --// Keep the bottom tab strip slightly more translucent.
+        TabPanel.BackgroundTransparency = math.clamp(Value + 0.22, 0, 1)
     end
 
     function Window:ShowTabInfo(Name, Description)
