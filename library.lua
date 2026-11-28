@@ -481,7 +481,7 @@ local Templates = {
         AutoMinimize = false,
 
         CornerRadius = 16,
-        PanelTransparency = 0.52,
+        PanelTransparency = 0.9,
         NotifySide = "Right",
         DisableNotificationBell = false,
         ShowCustomCursor = true,
@@ -2909,45 +2909,10 @@ local function ApplyGlassGradient(Surface: GuiObject)
     })
 end
 
---// Animated diagonal sheen: a narrow band of light crosses the surface,
---// rests, then crosses again. Only for fixed-size surfaces (a relative-sized
---// child would fight an AutomaticSize parent). The sweep sits at the parent's
---// ZIndex and is added before the content, so it renders above the glass body
---// but below everything placed on the glass.
+--// Diagonal sheen is intentionally disabled. The vertical polish gradient from
+--// ApplyGlassGradient remains, but no animated diagonal line crosses panels.
 local function ApplyGlassSweep(Surface: GuiObject, CornerRadius: UDim?, Phase: number?)
-    local Sweep = New("Frame", {
-        Name = "GlassSweep",
-        Active = false,
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BackgroundTransparency = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = Surface.ZIndex,
-        Parent = Surface,
-    })
-    if CornerRadius then
-        New("UICorner", {
-            CornerRadius = CornerRadius,
-            Parent = Sweep,
-        })
-    end
-    local Gradient = New("UIGradient", {
-        Rotation = 28,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(0.40, 1),
-            NumberSequenceKeypoint.new(0.5, 0.93),
-            NumberSequenceKeypoint.new(0.60, 1),
-            NumberSequenceKeypoint.new(1, 1),
-        }),
-        Offset = Vector2.new(2, 0),
-        Parent = Sweep,
-    })
-    table.insert(GlassSweeps, {
-        Frame = Sweep,
-        Gradient = Gradient,
-        Phase = Phase or 0,
-    })
-    return Sweep
+    return nil
 end
 
 local function IsGlassSurfaceVisible(Frame: GuiObject): boolean
@@ -15647,7 +15612,7 @@ function Library:CreateWindow(WindowInfo)
     local TitlePanelHeight = 48
     local PanelGap = 6
     local PanelTransparency = typeof(WindowInfo.PanelTransparency) == "number"
-        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.52
+        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.9
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
 
