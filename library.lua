@@ -481,7 +481,7 @@ local Templates = {
         AutoMinimize = false,
 
         CornerRadius = 16,
-        PanelTransparency = 0.34,
+        PanelTransparency = 0.52,
         NotifySide = "Right",
         DisableNotificationBell = false,
         ShowCustomCursor = true,
@@ -2282,7 +2282,7 @@ end
 
 local OnlineFetchIcons, OnlineIcons = pcall(function()
     return (loadstring(
-        game:HttpGet("https://raw.githubusercontent.com/notpoiu/lucide-roblox-direct/refs/heads/main/source.lua")
+        game:HttpGet("https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/refs/heads/main/source.lua")
     ) :: () -> IconModule)()
 end)
 if OnlineFetchIcons and OnlineIcons then
@@ -15647,7 +15647,7 @@ function Library:CreateWindow(WindowInfo)
     local TitlePanelHeight = 48
     local PanelGap = 6
     local PanelTransparency = typeof(WindowInfo.PanelTransparency) == "number"
-        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.34
+        and math.clamp(WindowInfo.PanelTransparency, 0, 1) or 0.52
     WindowInfo.SnapDistance = math.max(0, WindowInfo.SnapDistance)
     WindowInfo.SnapMargin = math.max(0, WindowInfo.SnapMargin)
 
@@ -15887,7 +15887,7 @@ function Library:CreateWindow(WindowInfo)
         TabSelectBoxGlow.Visible = true
 
         SafeTweenCreate(TabSelectBox, Library.TweenInfo, {
-            BackgroundTransparency = 0.84,
+            BackgroundTransparency = 0.9,
         }):Play()
         SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
             Transparency = 0.15,
@@ -21100,11 +21100,11 @@ function Library:CreateWindow(WindowInfo)
             end
 
             SafeTweenCreate(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = 0,
+                BackgroundTransparency = 0.78,
             }):Play()
             if TabIndicator then
                 SafeTweenCreate(TabIndicator, Library.TweenInfo, {
-                    BackgroundTransparency = 0,
+                    BackgroundTransparency = 0.5,
                 }):Play()
             end
             SafeTweenCreate(TabLabel, Library.TweenInfo, {
@@ -21112,7 +21112,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0,
+                    ImageTransparency = 0.25,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
@@ -21628,12 +21628,12 @@ function Library:CreateWindow(WindowInfo)
             end
 
             SafeTweenCreate(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = 0,
+                BackgroundTransparency = 0.78,
             }):Play()
 
             if TabIndicator then
                 SafeTweenCreate(TabIndicator, Library.TweenInfo, {
-                    BackgroundTransparency = 0,
+                    BackgroundTransparency = 0.5,
                 }):Play()
             end
 
@@ -21643,7 +21643,7 @@ function Library:CreateWindow(WindowInfo)
 
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0,
+                    ImageTransparency = 0.25,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
