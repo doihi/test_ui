@@ -15828,6 +15828,7 @@ function Library:CreateWindow(WindowInfo)
             TabSelectBoxStroke = New("UIStroke", {
                 Color = "AccentColor",
                 Transparency = 1,
+                Visible = false,
                 Parent = TabSelectBox,
             })
             Library:AddToRegistry(TabSelectBoxStroke, { Color = "AccentColor" })
@@ -15884,14 +15885,18 @@ function Library:CreateWindow(WindowInfo)
         end
         TabSelectBoxGlow.ZIndex = TabSelectBox.ZIndex - 1
         TabSelectBoxGlow.Parent = Holder
-        TabSelectBoxGlow.Visible = true
+        --// No extra edge/glow on the active tab; keep the icon itself readable.
+        TabSelectBoxGlow.Visible = false
 
         SafeTweenCreate(TabSelectBox, Library.TweenInfo, {
             BackgroundTransparency = 0.9,
         }):Play()
-        SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
-            Transparency = 0.15,
-        }):Play()
+        if TabSelectBoxStroke then
+            TabSelectBoxStroke.Visible = false
+            SafeTweenCreate(TabSelectBoxStroke, Library.TweenInfo, {
+                Transparency = 1,
+            }):Play()
+        end
 
         if Instant or not StartPos then
             TabSelectBox.Position = Pos
@@ -18884,7 +18889,7 @@ function Library:CreateWindow(WindowInfo)
                     AnchorPoint = Vector2.new(0.5, 0.5),
                     BackgroundTransparency = 1,
                     ImageColor3 = Icon.Custom and "WhiteColor" or "AccentColor",
-                    ImageTransparency = 0.5,
+                    ImageTransparency = 0.35,
                     Position = UDim2.fromScale(0.5, 0.5),
                     ScaleType = Enum.ScaleType.Fit,
                     Size = UDim2.fromOffset(20, 20),
@@ -21085,7 +21090,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = Hovering and 0.25 or 0.5,
+                    ImageTransparency = Hovering and 0.25 or 0.35,
                 }):Play()
             end
         end
@@ -21104,7 +21109,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             if TabIndicator then
                 SafeTweenCreate(TabIndicator, Library.TweenInfo, {
-                    BackgroundTransparency = 0.5,
+                    BackgroundTransparency = 1,
                 }):Play()
             end
             SafeTweenCreate(TabLabel, Library.TweenInfo, {
@@ -21112,7 +21117,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0.25,
+                    ImageTransparency = 0.1,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
@@ -21161,7 +21166,7 @@ function Library:CreateWindow(WindowInfo)
 
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0.5,
+                    ImageTransparency = 0.35,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
@@ -21397,7 +21402,7 @@ function Library:CreateWindow(WindowInfo)
                     AnchorPoint = Vector2.new(0.5, 0.5),
                     BackgroundTransparency = 1,
                     ImageColor3 = Icon.Custom and "WhiteColor" or "AccentColor",
-                    ImageTransparency = 0.5,
+                    ImageTransparency = 0.35,
                     Position = UDim2.fromScale(0.5, 0.5),
                     ScaleType = Enum.ScaleType.Fit,
                     Size = UDim2.fromOffset(20, 20),
@@ -21613,7 +21618,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = Hovering and 0.25 or 0.5,
+                    ImageTransparency = Hovering and 0.25 or 0.35,
                 }):Play()
             end
         end
@@ -21633,7 +21638,7 @@ function Library:CreateWindow(WindowInfo)
 
             if TabIndicator then
                 SafeTweenCreate(TabIndicator, Library.TweenInfo, {
-                    BackgroundTransparency = 0.5,
+                    BackgroundTransparency = 1,
                 }):Play()
             end
 
@@ -21643,7 +21648,7 @@ function Library:CreateWindow(WindowInfo)
 
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0.25,
+                    ImageTransparency = 0.1,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
@@ -21693,7 +21698,7 @@ function Library:CreateWindow(WindowInfo)
 
             if TabIcon then
                 SafeTweenCreate(TabIcon, Library.TweenInfo, {
-                    ImageTransparency = 0.5,
+                    ImageTransparency = 0.35,
                 }):Play()
                 if Tab._IconSpinTween then
                     StopTween(Tab._IconSpinTween)
